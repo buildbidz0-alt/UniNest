@@ -701,7 +701,7 @@ function BookMarketplace() {
             <SelectValue placeholder="All Subjects" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Subjects</SelectItem>
+            <SelectItem value="all">All Subjects</SelectItem>
             <SelectItem value="Mathematics">Mathematics</SelectItem>
             <SelectItem value="Physics">Physics</SelectItem>
             <SelectItem value="Chemistry">Chemistry</SelectItem>
