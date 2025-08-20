@@ -80,6 +80,14 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
 
 # --- MODELS ---
 
+# Phone number validation
+import re
+
+def validate_indian_phone(phone: str) -> bool:
+    """Validate Indian phone number format"""
+    pattern = r'^[6-9]\d{9}$'  # Indian mobile numbers start with 6-9 and have 10 digits
+    return bool(re.match(pattern, phone))
+
 # User Models
 class UserCreate(BaseModel):
     name: str
@@ -88,11 +96,22 @@ class UserCreate(BaseModel):
     role: str  # "student" or "library"
     location: str
     bio: Optional[str] = ""
-    phone: Optional[str] = ""
+    phone: str  # Made mandatory
+    
+    def validate_phone(cls, v):
+        if not validate_indian_phone(v):
+            raise ValueError('Phone number must be a valid 10-digit Indian mobile number')
+        return v
 
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
+    phone: str  # Made mandatory for login too
+    
+    def validate_phone(cls, v):
+        if not validate_indian_phone(v):
+            raise ValueError('Phone number must be a valid 10-digit Indian mobile number')
+        return v
 
 class User(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -101,7 +120,7 @@ class User(BaseModel):
     role: str
     location: str
     bio: str
-    phone: str
+    phone: str  # No longer optional
     profile_image: Optional[str] = ""
     is_active: bool = True
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
