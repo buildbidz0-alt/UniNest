@@ -2249,13 +2249,18 @@ function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+    <div className="flex h-screen bg-gray-50 overflow-hidden">
+      {/* Sidebar */}
+      <div className="flex-shrink-0">
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      </div>
       
-      <div className="lg:ml-64">
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col overflow-hidden">
         <Header onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
         
-        <main className="min-h-screen">
+        {/* Page Content */}
+        <main className="flex-1 overflow-y-auto bg-gray-50">
           <Routes>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/books" element={<BookMarketplace />} />
