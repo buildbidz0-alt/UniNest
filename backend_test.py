@@ -621,6 +621,7 @@ def main():
     # Test sequence
     tests = [
         ("Health Check", tester.test_health_check),
+        ("Phone Number Validation", tester.test_phone_number_validation),
         ("Student Registration", tester.test_student_registration),
         ("Library Registration", tester.test_library_registration),
         ("Authentication", tester.test_authentication),
