@@ -301,6 +301,38 @@ class UniNestAPITester:
         
         return success
 
+    def test_profile_access(self):
+        """Test profile access with tokens"""
+        print("\n" + "="*50)
+        print("TESTING PROFILE ACCESS")
+        print("="*50)
+        
+        # Test student profile
+        if self.student_token:
+            success, response = self.run_test(
+                "Student Profile Access",
+                "GET",
+                "auth/profile",
+                200,
+                token=self.student_token
+            )
+            if success:
+                print(f"   Student Profile: {response.get('name')} ({response.get('role')})")
+        
+        # Test library profile
+        if self.library_token:
+            success, response = self.run_test(
+                "Library Profile Access",
+                "GET",
+                "auth/profile",
+                200,
+                token=self.library_token
+            )
+            if success:
+                print(f"   Library Profile: {response.get('name')} ({response.get('role')})")
+        
+        return success
+
     def test_dashboard_stats(self):
         """Test dashboard stats endpoint"""
         print("\n" + "="*50)
