@@ -202,19 +202,20 @@ class UniNestAPITester:
         return False
 
     def test_authentication(self):
-        """Test login functionality"""
+        """Test login functionality with phone number requirement"""
         print("\n" + "="*50)
-        print("TESTING AUTHENTICATION")
+        print("TESTING AUTHENTICATION WITH PHONE")
         print("="*50)
         
-        # Test student login
+        # Test student login with phone number
         student_login = {
             "email": "student@test.com",
-            "password": "test123"
+            "password": "test123",
+            "phone": "9876543210"
         }
         
         success, response = self.run_test(
-            "Student Login",
+            "Student Login with Phone",
             "POST",
             "auth/login",
             200,
@@ -222,16 +223,46 @@ class UniNestAPITester:
         )
         
         if success and 'token' in response:
-            print("   Student login successful")
+            print("   Student login with phone successful")
         
-        # Test library login
-        library_login = {
-            "email": "library@test.com",
+        # Test login without phone (should fail)
+        login_no_phone = {
+            "email": "student@test.com",
             "password": "test123"
         }
         
         success, response = self.run_test(
-            "Library Login",
+            "Login without Phone (Should Fail)",
+            "POST",
+            "auth/login",
+            422,  # Validation error
+            data=login_no_phone
+        )
+        
+        # Test login with wrong phone
+        login_wrong_phone = {
+            "email": "student@test.com",
+            "password": "test123",
+            "phone": "8765432109"
+        }
+        
+        success, response = self.run_test(
+            "Login with Wrong Phone",
+            "POST",
+            "auth/login",
+            401,  # Unauthorized
+            data=login_wrong_phone
+        )
+        
+        # Test library login with phone
+        library_login = {
+            "email": "library@test.com",
+            "password": "test123",
+            "phone": "9876543211"
+        }
+        
+        success, response = self.run_test(
+            "Library Login with Phone",
             "POST",
             "auth/login",
             200,
@@ -239,7 +270,7 @@ class UniNestAPITester:
         )
         
         if success and 'token' in response:
-            print("   Library login successful")
+            print("   Library login with phone successful")
         
         return success
 
