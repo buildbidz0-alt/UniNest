@@ -16,6 +16,7 @@ import razorpay
 import json
 import socketio
 from fastapi.responses import JSONResponse
+import re
 
 # Load environment variables
 ROOT_DIR = Path(__file__).parent
@@ -43,6 +44,12 @@ sio = socketio.AsyncServer(cors_allowed_origins="*")
 # FastAPI app
 app = FastAPI(title="UniNest API", description="Student & Library Platform")
 api_router = APIRouter(prefix="/api")
+
+# Phone number validation
+def validate_indian_phone(phone: str) -> bool:
+    """Validate Indian phone number format"""
+    pattern = r'^[6-9]\d{9}$'  # Indian mobile numbers start with 6-9 and have 10 digits
+    return bool(re.match(pattern, phone))
 
 # Utility functions
 def hash_password(password: str) -> str:
@@ -80,14 +87,6 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
 
 # --- MODELS ---
 
-# Phone number validation
-import re
-
-def validate_indian_phone(phone: str) -> bool:
-    """Validate Indian phone number format"""
-    pattern = r'^[6-9]\d{9}$'  # Indian mobile numbers start with 6-9 and have 10 digits
-    return bool(re.match(pattern, phone))
-
 # User Models
 class UserCreate(BaseModel):
     name: str
@@ -106,19 +105,6 @@ class UserCreate(BaseModel):
 class UserLogin(BaseModel):
     identifier: str  # Can be email or phone
     password: str
-    
-    def validate_identifier(cls, v):
-        # Check if it's an email or phone number
-        if '@' in v:
-            # Email validation
-            import re
-            if not re.match(r'^[^@]+@[^@]+\.[^@]+$', v):
-                raise ValueError('Invalid email format')
-        else:
-            # Phone validation
-            if not validate_indian_phone(v):
-                raise ValueError('Invalid phone number format')
-        return v
 
 class User(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -127,7 +113,7 @@ class User(BaseModel):
     role: str
     location: str
     bio: str
-    phone: str  # No longer optional
+    phone: str
     profile_image: Optional[str] = ""
     is_active: bool = True
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -165,6 +151,16 @@ class Book(BaseModel):
     status: str = "available"  # "available", "sold", "reserved"
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+class BookUpdate(BaseModel):
+    title: Optional[str] = None
+    author: Optional[str] = None
+    subject: Optional[str] = None
+    price: Optional[float] = None
+    condition: Optional[str] = None
+    description: Optional[str] = None
+    image_url: Optional[str] = None
+    status: Optional[str] = None
+
 # Library Models
 class LibraryCreate(BaseModel):
     name: str
@@ -201,25 +197,33 @@ class TimeSlot(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class BookingCreate(BaseModel):
+    library_id: str
     time_slot_id: str
-    seat_number: int
+    date: str
+    start_time: str
+    end_time: str
+    seats_requested: int = 1
 
 class Booking(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     student_id: str
     library_id: str
     time_slot_id: str
-    seat_number: int
+    date: str
+    start_time: str
+    end_time: str
+    seats_booked: int = 1
     status: str = "confirmed"  # "confirmed", "cancelled"
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 # Subscription Models
 class SubscriptionPlan(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    id: str
     name: str
     price: int  # in paise
     seat_limit: int
     duration: int = 30  # days
+    features: List[str]
 
 class LibrarySubscription(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -394,6 +398,58 @@ async def login(user_data: UserLogin):
 async def get_profile(current_user: dict = Depends(get_current_user)):
     return UserResponse(**{k: v for k, v in current_user.items() if k != "password"})
 
+# --- DASHBOARD DATA ENDPOINT ---
+
+@api_router.get("/dashboard/stats")
+async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
+    try:
+        if current_user["role"] == "student":
+            # Get student stats
+            my_books_count = await db.books.count_documents({"seller_id": current_user["id"]})
+            available_books_count = await db.books.count_documents({"status": "available"})
+            my_notes_count = await db.notes.count_documents({"uploader_id": current_user["id"]})
+            my_bookings_count = await db.bookings.count_documents({"student_id": current_user["id"]})
+            competitions_count = await db.competitions.count_documents({})
+            
+            return {
+                "role": "student",
+                "my_books": my_books_count,
+                "available_books": available_books_count,
+                "my_notes": my_notes_count,
+                "my_bookings": my_bookings_count,
+                "competitions": competitions_count,
+                "recent_activity": []
+            }
+        else:
+            # Get library stats
+            my_library = await db.libraries.find_one({"owner_id": current_user["id"]})
+            library_id = my_library["id"] if my_library else None
+            
+            total_bookings = await db.bookings.count_documents({"library_id": library_id}) if library_id else 0
+            time_slots_count = await db.time_slots.count_documents({"library_id": library_id}) if library_id else 0
+            
+            # Check subscription
+            subscription = None
+            if library_id:
+                subscription = await db.library_subscriptions.find_one({
+                    "library_id": library_id,
+                    "status": "active",
+                    "end_date": {"$gt": datetime.now(timezone.utc)}
+                })
+            
+            return {
+                "role": "library",
+                "has_library": bool(my_library),
+                "library_name": my_library["name"] if my_library else "",
+                "total_bookings": total_bookings,
+                "time_slots": time_slots_count,
+                "has_subscription": bool(subscription),
+                "subscription": subscription,
+                "recent_activity": []
+            }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch dashboard data: {str(e)}")
+
 # --- BOOK MARKETPLACE ENDPOINTS ---
 
 @api_router.post("/books", response_model=Book)
@@ -426,6 +482,14 @@ async def get_books(
     books = await db.books.find(query).to_list(100)
     return [Book(**book) for book in books]
 
+@api_router.get("/books/my")
+async def get_my_books(current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "student":
+        raise HTTPException(status_code=403, detail="Only students can view their books")
+    
+    books = await db.books.find({"seller_id": current_user["id"]}).to_list(100)
+    return [Book(**book) for book in books]
+
 @api_router.get("/books/{book_id}", response_model=Book)
 async def get_book(book_id: str):
     book = await db.books.find_one({"id": book_id})
@@ -433,10 +497,10 @@ async def get_book(book_id: str):
         raise HTTPException(status_code=404, detail="Book not found")
     return Book(**book)
 
-@api_router.put("/books/{book_id}/status")
-async def update_book_status(
-    book_id: str, 
-    status: str,
+@api_router.put("/books/{book_id}")
+async def update_book(
+    book_id: str,
+    book_update: BookUpdate,
     current_user: dict = Depends(get_current_user)
 ):
     book = await db.books.find_one({"id": book_id})
@@ -444,10 +508,25 @@ async def update_book_status(
         raise HTTPException(status_code=404, detail="Book not found")
     
     if book["seller_id"] != current_user["id"]:
-        raise HTTPException(status_code=403, detail="Not authorized")
+        raise HTTPException(status_code=403, detail="Not authorized to update this book")
     
-    await db.books.update_one({"id": book_id}, {"$set": {"status": status}})
-    return {"message": "Book status updated"}
+    update_data = {k: v for k, v in book_update.dict().items() if v is not None}
+    if update_data:
+        await db.books.update_one({"id": book_id}, {"$set": update_data})
+    
+    return {"message": "Book updated successfully"}
+
+@api_router.delete("/books/{book_id}")
+async def delete_book(book_id: str, current_user: dict = Depends(get_current_user)):
+    book = await db.books.find_one({"id": book_id})
+    if not book:
+        raise HTTPException(status_code=404, detail="Book not found")
+    
+    if book["seller_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this book")
+    
+    await db.books.delete_one({"id": book_id})
+    return {"message": "Book deleted successfully"}
 
 # --- LIBRARY SYSTEM ENDPOINTS ---
 
@@ -455,6 +534,11 @@ async def update_book_status(
 async def create_library(library_data: LibraryCreate, current_user: dict = Depends(get_current_user)):
     if current_user["role"] != "library":
         raise HTTPException(status_code=403, detail="Only libraries can create library profiles")
+    
+    # Check if library already exists for this user
+    existing = await db.libraries.find_one({"owner_id": current_user["id"]})
+    if existing:
+        raise HTTPException(status_code=400, detail="Library profile already exists")
     
     library = Library(**library_data.dict(), owner_id=current_user["id"])
     await db.libraries.insert_one(library.dict())
@@ -468,6 +552,17 @@ async def get_libraries(location: Optional[str] = Query(None)):
     
     libraries = await db.libraries.find(query).to_list(100)
     return [Library(**library) for library in libraries]
+
+@api_router.get("/libraries/my")
+async def get_my_library(current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "library":
+        raise HTTPException(status_code=403, detail="Only libraries can view their library")
+    
+    library = await db.libraries.find_one({"owner_id": current_user["id"]})
+    if not library:
+        raise HTTPException(status_code=404, detail="Library profile not found")
+    
+    return Library(**library)
 
 @api_router.post("/timeslots", response_model=TimeSlot)
 async def create_timeslot(slot_data: TimeSlotCreate, current_user: dict = Depends(get_current_user)):
@@ -487,7 +582,7 @@ async def create_timeslot(slot_data: TimeSlotCreate, current_user: dict = Depend
     })
     
     if not subscription:
-        raise HTTPException(status_code=403, detail="Active subscription required")
+        raise HTTPException(status_code=403, detail="Active subscription required to create time slots")
     
     time_slot = TimeSlot(**slot_data.dict())
     await db.time_slots.insert_one(time_slot.dict())
@@ -508,14 +603,18 @@ async def create_booking(booking_data: BookingCreate, current_user: dict = Depen
     if not slot:
         raise HTTPException(status_code=404, detail="Time slot not found")
     
-    if slot["booked_seats"] >= slot["available_seats"]:
-        raise HTTPException(status_code=400, detail="No seats available")
+    if (slot["booked_seats"] + booking_data.seats_requested) > slot["available_seats"]:
+        raise HTTPException(status_code=400, detail="Not enough seats available")
     
     # Create booking
     booking = Booking(
         student_id=current_user["id"],
-        library_id=slot["library_id"],
-        **booking_data.dict()
+        library_id=booking_data.library_id,
+        time_slot_id=booking_data.time_slot_id,
+        date=booking_data.date,
+        start_time=booking_data.start_time,
+        end_time=booking_data.end_time,
+        seats_booked=booking_data.seats_requested
     )
     
     await db.bookings.insert_one(booking.dict())
@@ -523,7 +622,7 @@ async def create_booking(booking_data: BookingCreate, current_user: dict = Depen
     # Update slot
     await db.time_slots.update_one(
         {"id": booking_data.time_slot_id},
-        {"$inc": {"booked_seats": 1}}
+        {"$inc": {"booked_seats": booking_data.seats_requested}}
     )
     
     return booking
@@ -546,8 +645,20 @@ async def get_my_bookings(current_user: dict = Depends(get_current_user)):
 
 # Predefined subscription plans
 SUBSCRIPTION_PLANS = [
-    SubscriptionPlan(id="basic", name="Basic Plan", price=50000, seat_limit=20),  # ₹500
-    SubscriptionPlan(id="premium", name="Premium Plan", price=150000, seat_limit=100)  # ₹1500
+    SubscriptionPlan(
+        id="basic", 
+        name="Basic Plan", 
+        price=50000,  # ₹500
+        seat_limit=20,
+        features=["Up to 20 seats", "Basic booking management", "Email support"]
+    ),
+    SubscriptionPlan(
+        id="premium", 
+        name="Premium Plan", 
+        price=150000,  # ₹1500
+        seat_limit=100,
+        features=["Up to 100 seats", "Advanced analytics", "Priority support", "Custom branding"]
+    )
 ]
 
 @api_router.get("/subscription-plans", response_model=List[SubscriptionPlan])
@@ -564,6 +675,11 @@ async def create_payment_order(order_data: PaymentOrder, current_user: dict = De
     if not plan:
         raise HTTPException(status_code=404, detail="Plan not found")
     
+    # Get library
+    library = await db.libraries.find_one({"owner_id": current_user["id"]})
+    if not library:
+        raise HTTPException(status_code=404, detail="Library profile required to subscribe")
+    
     # Create Razorpay order
     razor_order = razorpay_client.order.create({
         "amount": plan.price,
@@ -575,6 +691,7 @@ async def create_payment_order(order_data: PaymentOrder, current_user: dict = De
     await db.payment_orders.insert_one({
         "order_id": razor_order["id"],
         "user_id": current_user["id"],
+        "library_id": library["id"],
         "plan_id": order_data.plan_id,
         "amount": plan.price,
         "status": "created",
@@ -585,7 +702,8 @@ async def create_payment_order(order_data: PaymentOrder, current_user: dict = De
         "order_id": razor_order["id"],
         "amount": razor_order["amount"],
         "currency": razor_order["currency"],
-        "key": os.environ.get('RAZORPAY_KEY_ID')
+        "key": os.environ.get('RAZORPAY_KEY_ID'),
+        "plan": plan.dict()
     }
 
 @api_router.post("/verify-payment")
@@ -603,17 +721,12 @@ async def verify_payment(payment_data: PaymentVerification, current_user: dict =
         if not order:
             raise HTTPException(status_code=404, detail="Order not found")
         
-        # Find user's library
-        library = await db.libraries.find_one({"owner_id": current_user["id"]})
-        if not library:
-            raise HTTPException(status_code=404, detail="Library not found")
-        
         # Create subscription
         start_date = datetime.now(timezone.utc)
         end_date = start_date + timedelta(days=30)
         
         subscription = LibrarySubscription(
-            library_id=library["id"],
+            library_id=order["library_id"],
             plan_id=order["plan_id"],
             start_date=start_date,
             end_date=end_date,
@@ -629,7 +742,7 @@ async def verify_payment(payment_data: PaymentVerification, current_user: dict =
             {"$set": {"status": "completed"}}
         )
         
-        return {"message": "Payment verified and subscription activated"}
+        return {"message": "Payment verified and subscription activated successfully"}
         
     except razorpay.errors.SignatureVerificationError:
         raise HTTPException(status_code=400, detail="Invalid payment signature")
@@ -641,7 +754,7 @@ async def get_my_subscription(current_user: dict = Depends(get_current_user)):
     
     library = await db.libraries.find_one({"owner_id": current_user["id"]})
     if not library:
-        raise HTTPException(status_code=404, detail="Library not found")
+        return {"subscription": None}
     
     subscription = await db.library_subscriptions.find_one({
         "library_id": library["id"],
@@ -651,13 +764,19 @@ async def get_my_subscription(current_user: dict = Depends(get_current_user)):
     if not subscription:
         return {"subscription": None}
     
-    return {"subscription": LibrarySubscription(**subscription)}
+    # Get plan details
+    plan = next((p for p in SUBSCRIPTION_PLANS if p.id == subscription["plan_id"]), None)
+    
+    return {
+        "subscription": LibrarySubscription(**subscription),
+        "plan": plan.dict() if plan else None
+    }
 
 # --- COMPETITIONS ENDPOINTS ---
 
 @api_router.post("/competitions", response_model=Competition)
 async def create_competition(comp_data: CompetitionCreate):
-    # Only admin can create competitions in real app
+    # For now, allow anyone to create competitions (in real app, only admin)
     competition = Competition(**comp_data.dict())
     await db.competitions.insert_one(competition.dict())
     return competition
@@ -688,7 +807,7 @@ async def register_for_competition(competition_id: str, current_user: dict = Dep
     })
     
     if existing:
-        raise HTTPException(status_code=400, detail="Already registered")
+        raise HTTPException(status_code=400, detail="Already registered for this competition")
     
     registration = CompetitionRegistration(
         competition_id=competition_id,
@@ -697,6 +816,17 @@ async def register_for_competition(competition_id: str, current_user: dict = Dep
     
     await db.competition_registrations.insert_one(registration.dict())
     return {"message": "Registration successful"}
+
+@api_router.get("/competitions/my")
+async def get_my_competitions(current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "student":
+        raise HTTPException(status_code=403, detail="Only students can view their competitions")
+    
+    registrations = await db.competition_registrations.find({"student_id": current_user["id"]}).to_list(100)
+    competition_ids = [reg["competition_id"] for reg in registrations]
+    
+    competitions = await db.competitions.find({"id": {"$in": competition_ids}}).to_list(100)
+    return [Competition(**comp) for comp in competitions]
 
 # --- NOTES SHARING ENDPOINTS ---
 
@@ -723,6 +853,14 @@ async def get_notes(subject: Optional[str] = Query(None), search: Optional[str] 
         ]
     
     notes = await db.notes.find(query).to_list(100)
+    return [Note(**note) for note in notes]
+
+@api_router.get("/notes/my")
+async def get_my_notes(current_user: dict = Depends(get_current_user)):
+    if current_user["role"] != "student":
+        raise HTTPException(status_code=403, detail="Only students can view their notes")
+    
+    notes = await db.notes.find({"uploader_id": current_user["id"]}).to_list(100)
     return [Note(**note) for note in notes]
 
 @api_router.post("/notes/{note_id}/like")
@@ -767,7 +905,7 @@ async def like_post(post_id: str, current_user: dict = Depends(get_current_user)
         likes.append(current_user["id"])
     
     await db.posts.update_one({"id": post_id}, {"$set": {"likes": likes}})
-    return {"message": "Post liked/unliked"}
+    return {"message": "Post liked/unliked", "likes_count": len(likes)}
 
 @api_router.post("/posts/{post_id}/comment")
 async def add_comment(post_id: str, comment_data: CommentCreate, current_user: dict = Depends(get_current_user)):
@@ -787,7 +925,7 @@ async def add_comment(post_id: str, comment_data: CommentCreate, current_user: d
     comments.append(comment)
     
     await db.posts.update_one({"id": post_id}, {"$set": {"comments": comments}})
-    return {"message": "Comment added"}
+    return {"message": "Comment added", "comment": comment}
 
 # --- MESSAGING ENDPOINTS ---
 
@@ -803,7 +941,7 @@ async def send_message(message_data: MessageCreate, current_user: dict = Depends
     # Emit real-time message
     await sio.emit('new_message', message.dict(), room=message_data.receiver_id)
     
-    return {"message": "Message sent"}
+    return {"message": "Message sent successfully"}
 
 @api_router.get("/messages/{user_id}")
 async def get_conversation(user_id: str, current_user: dict = Depends(get_current_user)):
@@ -853,53 +991,6 @@ async def get_conversations(current_user: dict = Depends(get_current_user)):
     
     return result
 
-# --- WEBHOOK ENDPOINT ---
-
-@api_router.post("/webhook/razorpay")
-async def razorpay_webhook(request: Request):
-    payload = await request.body()
-    signature = request.headers.get('X-Razorpay-Signature', '')
-    
-    try:
-        razorpay_client.utility.verify_webhook_signature(
-            payload.decode(),
-            signature,
-            os.environ.get('RAZORPAY_WEBHOOK_SECRET', '')
-        )
-        
-        event_data = json.loads(payload)
-        
-        # Update payment status
-        if event_data['event'] == 'payment.captured':
-            payment_id = event_data['payload']['payment']['entity']['id']
-            order_id = event_data['payload']['payment']['entity']['order_id']
-            
-            await db.payment_orders.update_one(
-                {"order_id": order_id},
-                {"$set": {"status": "completed", "payment_id": payment_id}}
-            )
-        
-        return {"status": "processed"}
-    
-    except Exception as e:
-        return JSONResponse(status_code=400, content={"error": str(e)})
-
-# --- SOCKET.IO EVENTS ---
-
-@sio.event
-async def connect(sid, environ):
-    print(f"Client {sid} connected")
-
-@sio.event
-async def disconnect(sid):
-    print(f"Client {sid} disconnected")
-
-@sio.event
-async def join_room(sid, data):
-    room = data.get('room')
-    if room:
-        await sio.enter_room(sid, room)
-
 # --- BASIC ENDPOINTS ---
 
 @api_router.get("/")
@@ -935,3 +1026,19 @@ logger = logging.getLogger(__name__)
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
+
+# --- SOCKET.IO EVENTS ---
+
+@sio.event
+async def connect(sid, environ):
+    print(f"Client {sid} connected")
+
+@sio.event
+async def disconnect(sid):
+    print(f"Client {sid} disconnected")
+
+@sio.event
+async def join_room(sid, data):
+    room = data.get('room')
+    if room:
+        await sio.enter_room(sid, room)
