@@ -70,6 +70,75 @@ class UniNestAPITester:
         
         return success
 
+    def test_phone_number_validation(self):
+        """Test phone number validation during registration"""
+        print("\n" + "="*50)
+        print("TESTING PHONE NUMBER VALIDATION")
+        print("="*50)
+        
+        base_data = {
+            "name": "Test User",
+            "email": "phonetest@test.com",
+            "password": "test123",
+            "role": "student",
+            "location": "Mumbai",
+            "bio": "Test user bio"
+        }
+        
+        # Test invalid phone numbers (should fail with 400)
+        invalid_phones = [
+            ("98765", "Too short phone number"),
+            ("1234567890", "Invalid start digit (1)"),
+            ("2345678901", "Invalid start digit (2)"),
+            ("abcd567890", "Non-numeric phone"),
+            ("98765432101", "Too long phone number"),
+            ("", "Empty phone number")
+        ]
+        
+        for phone, description in invalid_phones:
+            test_data = {**base_data, "phone": phone}
+            success, response = self.run_test(
+                f"Invalid Phone: {description}",
+                "POST",
+                "auth/register",
+                400,
+                data=test_data
+            )
+            if not success:
+                print(f"   ⚠️  Expected validation failure for {description}")
+        
+        # Test valid phone numbers (should succeed with 200)
+        valid_phones = [
+            ("9876543210", "Valid phone starting with 9"),
+            ("8765432109", "Valid phone starting with 8"),
+            ("7654321098", "Valid phone starting with 7"),
+            ("6543210987", "Valid phone starting with 6")
+        ]
+        
+        for i, (phone, description) in enumerate(valid_phones):
+            test_data = {**base_data, "phone": phone, "email": f"valid{i}@test.com"}
+            success, response = self.run_test(
+                f"Valid Phone: {description}",
+                "POST",
+                "auth/register",
+                200,
+                data=test_data
+            )
+            if success:
+                print(f"   ✅ {description} registered successfully")
+        
+        # Test phone number uniqueness
+        duplicate_data = {**base_data, "phone": "9876543210", "email": "duplicate@test.com"}
+        success, response = self.run_test(
+            "Duplicate Phone Number",
+            "POST",
+            "auth/register",
+            400,
+            data=duplicate_data
+        )
+        
+        return True
+
     def test_student_registration(self):
         """Test student user registration"""
         print("\n" + "="*50)
