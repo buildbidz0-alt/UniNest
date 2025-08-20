@@ -2264,23 +2264,23 @@ function LibraryProfile() {
   );
 }
 
-// Main App Layout
+// Main App Layout with PROPER Sidebar Structure
 function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
-      {/* Sidebar */}
-      <div className="flex-shrink-0">
+      {/* Sidebar Container */}
+      <div className="relative">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       </div>
       
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Main Content Container */}
+      <div className="flex flex-col flex-1 min-w-0">
         <Header onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
         
-        {/* Page Content */}
-        <main className="flex-1 overflow-y-auto bg-gray-50">
+        {/* Page Content with Proper Scrolling */}
+        <main className="flex-1 overflow-auto">
           <Routes>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/books" element={<BookMarketplace />} />
