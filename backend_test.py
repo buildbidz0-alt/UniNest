@@ -693,6 +693,7 @@ def main():
         ("Library Registration", tester.test_library_registration),
         ("Authentication", tester.test_authentication),
         ("Profile Access", tester.test_profile_access),
+        ("Dashboard Stats", tester.test_dashboard_stats),
         ("Book Marketplace", tester.test_book_marketplace),
         ("Subscription Plans", tester.test_subscription_plans),
         ("Competitions", tester.test_competitions),
