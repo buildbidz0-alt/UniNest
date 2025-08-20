@@ -620,7 +620,7 @@ function BookMarketplace() {
       const api = apiRequest(token);
       const params = new URLSearchParams();
       if (searchTerm) params.append('search', searchTerm);
-      if (selectedSubject) params.append('subject', selectedSubject);
+      if (selectedSubject && selectedSubject !== 'all') params.append('subject', selectedSubject);
       
       const response = await api.get(`/books?${params}`);
       setBooks(response.data);
