@@ -970,13 +970,24 @@ function Sidebar({ isOpen, onClose }) {
 
   return (
     <>
+      {/* Mobile backdrop */}
       {isOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden" onClick={onClose} />
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden" 
+          onClick={onClose} 
+        />
       )}
       
-      <nav className={`fixed left-0 top-0 h-full w-64 bg-white border-r border-gray-200 transform transition-transform duration-300 ease-in-out z-50 ${isOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 lg:static lg:z-auto`}>
-        <div className="p-4">
-          <div className="flex items-center justify-between lg:justify-center mb-8">
+      {/* Sidebar */}
+      <nav className={`
+        fixed left-0 top-0 h-full w-64 bg-white border-r border-gray-200 
+        transform transition-transform duration-300 ease-in-out z-50
+        lg:translate-x-0 lg:static lg:h-screen
+        ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+      `}>
+        <div className="flex flex-col h-full">
+          {/* Sidebar Header */}
+          <div className="flex items-center justify-between p-4 border-b border-gray-100 lg:justify-center">
             <div className="flex items-center space-x-3">
               <div className="h-10 w-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center">
                 <BookOpen className="h-6 w-6 text-white" />
@@ -988,25 +999,43 @@ function Sidebar({ isOpen, onClose }) {
             </Button>
           </div>
 
-          <div className="space-y-1">
-            {navigation.map((item) => {
-              const isActive = location.pathname === item.href;
-              return (
-                <Link
-                  key={item.name}
-                  to={item.href}
-                  className={`flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600'
-                      : 'text-gray-700 hover:bg-gray-50'
-                  }`}
-                  onClick={onClose}
-                >
-                  <item.icon className="h-5 w-5" />
-                  <span>{item.name}</span>
-                </Link>
-              );
-            })}
+          {/* Navigation */}
+          <div className="flex-1 px-4 py-6 overflow-y-auto">
+            <div className="space-y-2">
+              {navigation.map((item) => {
+                const isActive = location.pathname === item.href;
+                return (
+                  <Link
+                    key={item.name}
+                    to={item.href}
+                    className={`flex items-center space-x-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+                      isActive
+                        ? 'bg-blue-50 text-blue-700 shadow-sm border-l-4 border-blue-600'
+                        : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
+                    }`}
+                    onClick={onClose}
+                  >
+                    <item.icon className="h-5 w-5 flex-shrink-0" />
+                    <span className="truncate">{item.name}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* User Info at Bottom */}
+          <div className="p-4 border-t border-gray-100">
+            <div className="flex items-center space-x-3">
+              <Avatar>
+                <AvatarFallback className="bg-blue-100 text-blue-600 text-sm">
+                  {user?.name?.charAt(0)?.toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900 truncate">{user?.name}</p>
+                <p className="text-xs text-gray-500 capitalize truncate">{user?.role}</p>
+              </div>
+            </div>
           </div>
         </div>
       </nav>
