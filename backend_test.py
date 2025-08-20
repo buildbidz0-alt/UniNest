@@ -301,35 +301,43 @@ class UniNestAPITester:
         
         return success
 
-    def test_profile_access(self):
-        """Test profile access with tokens"""
+    def test_dashboard_stats(self):
+        """Test dashboard stats endpoint"""
         print("\n" + "="*50)
-        print("TESTING PROFILE ACCESS")
+        print("TESTING DASHBOARD STATS")
         print("="*50)
         
-        # Test student profile
+        # Test student dashboard stats
         if self.student_token:
             success, response = self.run_test(
-                "Student Profile Access",
+                "Student Dashboard Stats",
                 "GET",
-                "auth/profile",
+                "dashboard/stats",
                 200,
                 token=self.student_token
             )
             if success:
-                print(f"   Student Profile: {response.get('name')} ({response.get('role')})")
+                print(f"   Student Stats: {response}")
+                expected_keys = ['role', 'my_books', 'available_books', 'my_notes', 'my_bookings', 'competitions']
+                for key in expected_keys:
+                    if key in response:
+                        print(f"   - {key}: {response[key]}")
         
-        # Test library profile
+        # Test library dashboard stats
         if self.library_token:
             success, response = self.run_test(
-                "Library Profile Access",
+                "Library Dashboard Stats",
                 "GET",
-                "auth/profile",
+                "dashboard/stats",
                 200,
                 token=self.library_token
             )
             if success:
-                print(f"   Library Profile: {response.get('name')} ({response.get('role')})")
+                print(f"   Library Stats: {response}")
+                expected_keys = ['role', 'has_library', 'total_bookings', 'time_slots', 'has_subscription']
+                for key in expected_keys:
+                    if key in response:
+                        print(f"   - {key}: {response[key]}")
         
         return success
 
