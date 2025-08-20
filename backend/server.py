@@ -313,10 +313,19 @@ class PaymentVerification(BaseModel):
 
 @api_router.post("/auth/register", response_model=Dict[str, Any])
 async def register(user_data: UserCreate):
-    # Check if user exists
+    # Validate phone number
+    if not validate_indian_phone(user_data.phone):
+        raise HTTPException(status_code=400, detail="Invalid phone number format. Please enter a valid 10-digit Indian mobile number.")
+    
+    # Check if user exists by email
     existing_user = await db.users.find_one({"email": user_data.email})
     if existing_user:
-        raise HTTPException(status_code=400, detail="User already exists")
+        raise HTTPException(status_code=400, detail="User with this email already exists")
+    
+    # Check if phone number is already used
+    existing_phone = await db.users.find_one({"phone": user_data.phone})
+    if existing_phone:
+        raise HTTPException(status_code=400, detail="Phone number is already registered")
     
     # Create user
     user = User(
@@ -325,7 +334,7 @@ async def register(user_data: UserCreate):
         role=user_data.role,
         location=user_data.location,
         bio=user_data.bio,
-        phone=user_data.phone or ""
+        phone=user_data.phone
     )
     
     # Hash password and store
@@ -346,8 +355,16 @@ async def register(user_data: UserCreate):
 
 @api_router.post("/auth/login", response_model=Dict[str, Any])
 async def login(user_data: UserLogin):
-    # Find user
-    user = await db.users.find_one({"email": user_data.email})
+    # Validate phone number format
+    if not validate_indian_phone(user_data.phone):
+        raise HTTPException(status_code=400, detail="Invalid phone number format")
+    
+    # Find user by email and phone
+    user = await db.users.find_one({
+        "email": user_data.email,
+        "phone": user_data.phone
+    })
+    
     if not user or not verify_password(user_data.password, user["password"]):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
