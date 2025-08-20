@@ -104,13 +104,20 @@ class UserCreate(BaseModel):
         return v
 
 class UserLogin(BaseModel):
-    email: EmailStr
+    identifier: str  # Can be email or phone
     password: str
-    phone: str  # Made mandatory for login too
     
-    def validate_phone(cls, v):
-        if not validate_indian_phone(v):
-            raise ValueError('Phone number must be a valid 10-digit Indian mobile number')
+    def validate_identifier(cls, v):
+        # Check if it's an email or phone number
+        if '@' in v:
+            # Email validation
+            import re
+            if not re.match(r'^[^@]+@[^@]+\.[^@]+$', v):
+                raise ValueError('Invalid email format')
+        else:
+            # Phone validation
+            if not validate_indian_phone(v):
+                raise ValueError('Invalid phone number format')
         return v
 
 class User(BaseModel):
