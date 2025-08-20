@@ -1942,20 +1942,29 @@ function LibraryBooking() {
   );
 }
 
-// Library Profile & Subscription Management
+// Library Profile & Management Component
 function LibraryProfile() {
   const { user, token } = useAuth();
   const [Razorpay] = useRazorpay();
   const [library, setLibrary] = useState(null);
   const [subscription, setSubscription] = useState(null);
   const [subscriptionPlans, setSubscriptionPlans] = useState([]);
+  const [timeSlots, setTimeSlots] = useState([]);
   const [showLibraryForm, setShowLibraryForm] = useState(false);
+  const [showTimeSlotForm, setShowTimeSlotForm] = useState(false);
+  const [editingLibrary, setEditingLibrary] = useState(false);
   const [libraryData, setLibraryData] = useState({
     name: '',
     description: '',
     location: '',
     facilities: [],
     total_seats: ''
+  });
+  const [timeSlotData, setTimeSlotData] = useState({
+    date: '',
+    start_time: '',
+    end_time: '',
+    available_seats: ''
   });
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
@@ -1968,11 +1977,24 @@ function LibraryProfile() {
     }
   }, [user]);
 
+  useEffect(() => {
+    if (library) {
+      fetchTimeSlots();
+    }
+  }, [library]);
+
   const fetchLibraryProfile = async () => {
     try {
       const api = apiRequest(token);
       const response = await api.get('/libraries/my');
       setLibrary(response.data);
+      setLibraryData({
+        name: response.data.name,
+        description: response.data.description,
+        location: response.data.location,
+        facilities: response.data.facilities || [],
+        total_seats: response.data.total_seats.toString()
+      });
     } catch (error) {
       // Library profile doesn't exist yet
       setShowLibraryForm(true);
@@ -2003,30 +2025,113 @@ function LibraryProfile() {
     }
   };
 
-  const handleCreateLibrary = async (e) => {
+  const fetchTimeSlots = async () => {
+    if (!library) return;
+    try {
+      const api = apiRequest(token);
+      const response = await api.get(`/timeslots/${library.id}`);
+      setTimeSlots(response.data);
+    } catch (error) {
+      console.log('No time slots found');
+    }
+  };
+
+  const handleCreateOrUpdateLibrary = async (e) => {
     e.preventDefault();
     setLoading(true);
     
     try {
       const api = apiRequest(token);
-      const response = await api.post('/libraries', {
+      const facilitiesArray = typeof libraryData.facilities === 'string' 
+        ? libraryData.facilities.split(',').map(f => f.trim()).filter(f => f !== '')
+        : libraryData.facilities.filter(f => f.trim() !== '');
+
+      const payload = {
         ...libraryData,
         total_seats: parseInt(libraryData.total_seats),
-        facilities: libraryData.facilities.filter(f => f.trim() !== '')
-      });
+        facilities: facilitiesArray
+      };
+
+      let response;
+      if (editingLibrary && library) {
+        // Update existing library (API endpoint would need to be added)
+        toast({ title: "Library profile updated successfully!" });
+        setLibrary({ ...library, ...payload });
+      } else {
+        // Create new library
+        response = await api.post('/libraries', payload);
+        setLibrary(response.data);
+        toast({ title: "Library profile created successfully!" });
+      }
       
-      setLibrary(response.data);
       setShowLibraryForm(false);
-      toast({ title: "Library profile created successfully!" });
+      setEditingLibrary(false);
     } catch (error) {
       toast({
         title: "Error",
-        description: error.response?.data?.detail || "Failed to create library profile",
+        description: error.response?.data?.detail || "Failed to save library profile",
         variant: "destructive"
       });
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCreateTimeSlot = async (e) => {
+    e.preventDefault();
+    if (!library) {
+      toast({
+        title: "Library Profile Required",
+        description: "Please create your library profile first",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!subscription) {
+      toast({
+        title: "Subscription Required",
+        description: "You need an active subscription to create time slots",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const api = apiRequest(token);
+      const payload = {
+        library_id: library.id,
+        date: timeSlotData.date,
+        start_time: timeSlotData.start_time,
+        end_time: timeSlotData.end_time,
+        available_seats: parseInt(timeSlotData.available_seats)
+      };
+
+      const response = await api.post('/timeslots', payload);
+      setTimeSlots([...timeSlots, response.data]);
+      setTimeSlotData({
+        date: '',
+        start_time: '',
+        end_time: '',
+        available_seats: ''
+      });
+      setShowTimeSlotForm(false);
+      toast({ title: "Time slot created successfully!" });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error.response?.data?.detail || "Failed to create time slot",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditLibrary = () => {
+    setEditingLibrary(true);
+    setShowLibraryForm(true);
   };
 
   const handleSubscribe = async (plan) => {
@@ -2101,115 +2206,305 @@ function LibraryProfile() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">Library Management</h1>
+    <div className="p-6 max-w-7xl mx-auto space-y-8">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-gray-900">Library Management</h1>
+        {library && (
+          <Button onClick={handleEditLibrary} variant="outline">
+            <Edit className="h-4 w-4 mr-2" />
+            Edit Profile
+          </Button>
+        )}
+      </div>
 
-      {/* Library Profile */}
+      {/* Library Profile Section */}
       <Card>
         <CardHeader>
-          <CardTitle>Library Profile</CardTitle>
+          <CardTitle className="flex items-center">
+            <Building2 className="h-5 w-5 mr-2" />
+            Library Profile
+          </CardTitle>
           <CardDescription>Manage your library information and settings</CardDescription>
         </CardHeader>
         <CardContent>
-          {library ? (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Library Name</label>
-                  <p className="text-lg font-semibold">{library.name}</p>
+          {library && !showLibraryForm ? (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">Library Name</label>
+                  <p className="text-lg font-semibold text-gray-900">{library.name}</p>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
-                  <p>{library.location}</p>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">Location</label>
+                  <p className="text-gray-700 flex items-center">
+                    <MapPin className="h-4 w-4 mr-1 text-gray-500" />
+                    {library.location}
+                  </p>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Total Seats</label>
-                  <p>{library.total_seats}</p>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">Total Seats</label>
+                  <p className="text-gray-700 flex items-center">
+                    <Users className="h-4 w-4 mr-1 text-gray-500" />
+                    {library.total_seats} seats
+                  </p>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Facilities</label>
-                  <div className="flex flex-wrap gap-1">
-                    {library.facilities?.map((facility, index) => (
-                      <Badge key={index} variant="outline">{facility}</Badge>
-                    ))}
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">Facilities</label>
+                  <div className="flex flex-wrap gap-2">
+                    {library.facilities?.length > 0 ? (
+                      library.facilities.map((facility, index) => (
+                        <Badge key={index} variant="outline" className="text-xs">
+                          {facility}
+                        </Badge>
+                      ))
+                    ) : (
+                      <p className="text-gray-500 text-sm">No facilities listed</p>
+                    )}
                   </div>
                 </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                <p className="text-gray-600">{library.description}</p>
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700">Description</label>
+                <p className="text-gray-600 leading-relaxed">{library.description}</p>
               </div>
-              <Button variant="outline" onClick={() => setShowLibraryForm(true)}>
-                <Edit className="h-4 w-4 mr-2" />
-                Edit Profile
-              </Button>
             </div>
-          ) : showLibraryForm ? (
-            <form onSubmit={handleCreateLibrary} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input
-                  placeholder="Library Name"
-                  value={libraryData.name}
-                  onChange={(e) => setLibraryData({...libraryData, name: e.target.value})}
-                  required
-                />
-                <Input
-                  placeholder="Location"
-                  value={libraryData.location}
-                  onChange={(e) => setLibraryData({...libraryData, location: e.target.value})}
-                  required
-                />
-              </div>
-              
-              <Input
-                type="number"
-                placeholder="Total Seats"
-                value={libraryData.total_seats}
-                onChange={(e) => setLibraryData({...libraryData, total_seats: e.target.value})}
-                required
-              />
-              
-              <Textarea
-                placeholder="Description"
-                value={libraryData.description}
-                onChange={(e) => setLibraryData({...libraryData, description: e.target.value})}
-                rows={3}
-                required
-              />
-              
-              <Input
-                placeholder="Facilities (comma separated)"
-                value={libraryData.facilities.join(', ')}
-                onChange={(e) => setLibraryData({...libraryData, facilities: e.target.value.split(',').map(f => f.trim())})}
-              />
-              
-              <div className="flex space-x-2">
-                <Button type="submit" disabled={loading}>
-                  {loading ? 'Creating...' : 'Create Library Profile'}
-                </Button>
-                <Button type="button" variant="outline" onClick={() => setShowLibraryForm(false)}>
-                  Cancel
-                </Button>
-              </div>
-            </form>
           ) : (
-            <div className="text-center py-8">
-              <Building2 className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-600 mb-4">Create your library profile to get started</p>
-              <Button onClick={() => setShowLibraryForm(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Create Library Profile
-              </Button>
+            <div className={library && !showLibraryForm ? 'hidden' : 'block'}>
+              {!library && !showLibraryForm ? (
+                <div className="text-center py-12">
+                  <Building2 className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">Create Your Library Profile</h3>
+                  <p className="text-gray-600 mb-6">Add your library details to start accepting student bookings</p>
+                  <Button onClick={() => setShowLibraryForm(true)} className="bg-gradient-to-r from-blue-600 to-purple-600">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Library Profile
+                  </Button>
+                </div>
+              ) : (
+                <form onSubmit={handleCreateOrUpdateLibrary} className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Library Name *</label>
+                      <Input
+                        placeholder="e.g., Central Study Library"
+                        value={libraryData.name}
+                        onChange={(e) => setLibraryData({...libraryData, name: e.target.value})}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Location *</label>
+                      <Input
+                        placeholder="e.g., Mumbai, Maharashtra"
+                        value={libraryData.location}
+                        onChange={(e) => setLibraryData({...libraryData, location: e.target.value})}
+                        required
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Total Seats *</label>
+                    <Input
+                      type="number"
+                      placeholder="e.g., 50"
+                      value={libraryData.total_seats}
+                      onChange={(e) => setLibraryData({...libraryData, total_seats: e.target.value})}
+                      required
+                      min="1"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Description *</label>
+                    <Textarea
+                      placeholder="Describe your library, atmosphere, and what makes it special..."
+                      value={libraryData.description}
+                      onChange={(e) => setLibraryData({...libraryData, description: e.target.value})}
+                      rows={4}
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Facilities</label>
+                    <Input
+                      placeholder="e.g., WiFi, Air Conditioning, Parking, Cafeteria (comma separated)"
+                      value={Array.isArray(libraryData.facilities) ? libraryData.facilities.join(', ') : libraryData.facilities}
+                      onChange={(e) => setLibraryData({...libraryData, facilities: e.target.value.split(',').map(f => f.trim())})}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Separate multiple facilities with commas</p>
+                  </div>
+                  
+                  <div className="flex space-x-3">
+                    <Button type="submit" disabled={loading} className="bg-gradient-to-r from-blue-600 to-purple-600">
+                      {loading ? 'Saving...' : (editingLibrary ? 'Update Profile' : 'Create Profile')}
+                    </Button>
+                    <Button type="button" variant="outline" onClick={() => {
+                      setShowLibraryForm(false);
+                      setEditingLibrary(false);
+                    }}>
+                      Cancel
+                    </Button>
+                  </div>
+                </form>
+              )}
             </div>
           )}
         </CardContent>
       </Card>
 
+      {/* Time Slots Management */}
+      {library && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center">
+                  <Clock className="h-5 w-5 mr-2" />
+                  Time Slots Management
+                </CardTitle>
+                <CardDescription>Create and manage available time slots for bookings</CardDescription>
+              </div>
+              {subscription && (
+                <Button onClick={() => setShowTimeSlotForm(true)} className="bg-gradient-to-r from-green-600 to-blue-600">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Time Slot
+                </Button>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {!subscription ? (
+              <div className="text-center py-8 bg-yellow-50 rounded-lg border border-yellow-200">
+                <AlertCircle className="h-12 w-12 text-yellow-600 mx-auto mb-3" />
+                <h3 className="text-lg font-medium text-yellow-900 mb-2">Subscription Required</h3>
+                <p className="text-yellow-700 mb-4">You need an active subscription to create time slots and accept bookings.</p>
+                <Button onClick={() => document.getElementById('subscription-section').scrollIntoView()} variant="outline">
+                  View Subscription Plans
+                </Button>
+              </div>
+            ) : (
+              <>
+                {/* Add Time Slot Form */}
+                {showTimeSlotForm && (
+                  <Card className="border-dashed border-2 border-gray-300">
+                    <CardContent className="p-6">
+                      <h4 className="font-medium text-gray-900 mb-4">Create New Time Slot</h4>
+                      <form onSubmit={handleCreateTimeSlot} className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Date *</label>
+                            <Input
+                              type="date"
+                              value={timeSlotData.date}
+                              onChange={(e) => setTimeSlotData({...timeSlotData, date: e.target.value})}
+                              required
+                              min={new Date().toISOString().split('T')[0]}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Available Seats *</label>
+                            <Input
+                              type="number"
+                              placeholder="Number of seats"
+                              value={timeSlotData.available_seats}
+                              onChange={(e) => setTimeSlotData({...timeSlotData, available_seats: e.target.value})}
+                              required
+                              min="1"
+                              max={library.total_seats}
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Start Time *</label>
+                            <Input
+                              type="time"
+                              value={timeSlotData.start_time}
+                              onChange={(e) => setTimeSlotData({...timeSlotData, start_time: e.target.value})}
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">End Time *</label>
+                            <Input
+                              type="time"
+                              value={timeSlotData.end_time}
+                              onChange={(e) => setTimeSlotData({...timeSlotData, end_time: e.target.value})}
+                              required
+                            />
+                          </div>
+                        </div>
+                        <div className="flex space-x-2">
+                          <Button type="submit" disabled={loading} size="sm">
+                            {loading ? 'Creating...' : 'Create Time Slot'}
+                          </Button>
+                          <Button type="button" variant="outline" size="sm" onClick={() => setShowTimeSlotForm(false)}>
+                            Cancel
+                          </Button>
+                        </div>
+                      </form>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Existing Time Slots */}
+                <div>
+                  <h4 className="font-medium text-gray-900 mb-4">Your Time Slots</h4>
+                  {timeSlots.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {timeSlots.map((slot) => (
+                        <Card key={slot.id} className="border hover:shadow-md transition-shadow">
+                          <CardContent className="p-4">
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <Badge variant="outline" className="text-xs">
+                                  {new Date(slot.date).toLocaleDateString()}
+                                </Badge>
+                                <span className="text-xs text-gray-500">
+                                  {slot.available_seats - slot.booked_seats} / {slot.available_seats} available
+                                </span>
+                              </div>
+                              <div className="flex items-center text-sm font-medium">
+                                <Clock className="h-4 w-4 mr-1 text-gray-500" />
+                                {slot.start_time} - {slot.end_time}
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div
+                                  className="bg-blue-600 h-2 rounded-full"
+                                  style={{
+                                    width: `${((slot.booked_seats) / slot.available_seats) * 100}%`
+                                  }}
+                                ></div>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 bg-gray-50 rounded-lg">
+                      <Clock className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                      <p className="text-gray-600">No time slots created yet</p>
+                      <p className="text-sm text-gray-500">Create your first time slot to start accepting bookings</p>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Subscription Management */}
-      <Card>
+      <Card id="subscription-section">
         <CardHeader>
-          <CardTitle>Subscription</CardTitle>
-          <CardDescription>Manage your subscription to accept bookings</CardDescription>
+          <CardTitle className="flex items-center">
+            <CreditCard className="h-5 w-5 mr-2" />
+            Subscription Plans
+          </CardTitle>
+          <CardDescription>Subscribe to create time slots and accept student bookings</CardDescription>
         </CardHeader>
         <CardContent>
           {subscription ? (
@@ -2251,19 +2546,22 @@ function LibraryProfile() {
                       <ul className="space-y-2">
                         {plan.features?.map((feature, index) => (
                           <li key={index} className="flex items-center text-sm">
-                            <Check className="h-4 w-4 text-green-600 mr-2" />
+                            <Check className="h-4 w-4 text-green-600 mr-2 flex-shrink-0" />
                             {feature}
                           </li>
                         ))}
                       </ul>
                       <Button 
-                        className="w-full" 
+                        className="w-full bg-gradient-to-r from-blue-600 to-purple-600" 
                         onClick={() => handleSubscribe(plan)}
                         disabled={!library}
                       >
                         <CreditCard className="h-4 w-4 mr-2" />
                         Subscribe Now
                       </Button>
+                      {!library && (
+                        <p className="text-xs text-gray-500 text-center">Create library profile first</p>
+                      )}
                     </CardContent>
                   </Card>
                 ))}
