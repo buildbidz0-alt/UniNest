@@ -981,7 +981,8 @@ function Sidebar({ isOpen, onClose }) {
 
   const libraryNavigation = [
     { name: 'Dashboard', href: '/dashboard', icon: Home },
-    { name: 'My Library', href: '/library-profile', icon: Building2 },
+    { name: 'Library Profile', href: '/library-profile', icon: Building2 },
+    { name: 'Time Slots', href: '/library-profile', icon: Clock },
     { name: 'Bookings', href: '/bookings', icon: Calendar },
     { name: 'Subscription', href: '/subscription', icon: Star }
   ];
