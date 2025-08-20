@@ -679,6 +679,276 @@ class UniNestAPITester:
         
         return success
 
+    def test_library_profile_management(self):
+        """Test comprehensive library profile management functionality"""
+        print("\n" + "="*50)
+        print("TESTING LIBRARY PROFILE MANAGEMENT")
+        print("="*50)
+        
+        if not self.library_token:
+            print("❌ No library token available for library profile testing")
+            return False
+        
+        # Test creating library profile
+        library_profile_data = {
+            "name": "Central Study Hub",
+            "description": "Modern study space with excellent facilities",
+            "location": "Mumbai, Maharashtra",
+            "facilities": ["WiFi", "Air Conditioning", "Parking", "Cafeteria", "24/7 Access"],
+            "total_seats": 50
+        }
+        
+        success, response = self.run_test(
+            "Create Library Profile",
+            "POST",
+            "libraries",
+            200,
+            data=library_profile_data,
+            token=self.library_token
+        )
+        
+        library_id = None
+        if success:
+            library_id = response.get('id')
+            print(f"   Created library profile with ID: {library_id}")
+            print(f"   Library Name: {response.get('name')}")
+            print(f"   Location: {response.get('location')}")
+            print(f"   Total Seats: {response.get('total_seats')}")
+            print(f"   Facilities: {', '.join(response.get('facilities', []))}")
+        
+        # Test getting my library profile
+        success, my_library = self.run_test(
+            "Get My Library Profile",
+            "GET",
+            "libraries/my",
+            200,
+            token=self.library_token
+        )
+        
+        if success:
+            print(f"   Retrieved library profile: {my_library.get('name')}")
+        
+        # Test getting all libraries (public endpoint)
+        success, all_libraries = self.run_test(
+            "Get All Libraries",
+            "GET",
+            "libraries",
+            200
+        )
+        
+        if success:
+            print(f"   Found {len(all_libraries)} libraries in system")
+        
+        # Test student trying to create library profile (should fail)
+        if self.student_token:
+            success, _ = self.run_test(
+                "Student Create Library Profile (Should Fail)",
+                "POST",
+                "libraries",
+                403,
+                data=library_profile_data,
+                token=self.student_token
+            )
+        
+        # Test duplicate library profile creation (should fail)
+        success, _ = self.run_test(
+            "Duplicate Library Profile (Should Fail)",
+            "POST",
+            "libraries",
+            400,
+            data=library_profile_data,
+            token=self.library_token
+        )
+        
+        return library_id is not None
+
+    def test_subscription_system(self):
+        """Test comprehensive subscription system"""
+        print("\n" + "="*50)
+        print("TESTING SUBSCRIPTION SYSTEM")
+        print("="*50)
+        
+        if not self.library_token:
+            print("❌ No library token available for subscription testing")
+            return False
+        
+        # Test getting subscription plans
+        success, plans = self.run_test(
+            "Get Subscription Plans",
+            "GET",
+            "subscription-plans",
+            200
+        )
+        
+        if not success or not plans:
+            print("❌ Failed to get subscription plans")
+            return False
+        
+        print(f"   Available Plans:")
+        for plan in plans:
+            print(f"   - {plan.get('name')}: ₹{plan.get('price', 0)/100} ({plan.get('seat_limit')} seats)")
+        
+        # Test creating payment order for basic plan
+        basic_plan = next((p for p in plans if p.get('id') == 'basic'), None)
+        if basic_plan:
+            order_data = {
+                "amount": basic_plan['price'],
+                "plan_id": basic_plan['id']
+            }
+            
+            success, order_response = self.run_test(
+                "Create Payment Order (Basic Plan)",
+                "POST",
+                "create-payment-order",
+                200,
+                data=order_data,
+                token=self.library_token
+            )
+            
+            if success:
+                print(f"   Created payment order: {order_response.get('order_id')}")
+                print(f"   Amount: ₹{order_response.get('amount', 0)/100}")
+                print(f"   Plan: {order_response.get('plan', {}).get('name')}")
+        
+        # Test getting current subscription (should be none initially)
+        success, subscription_response = self.run_test(
+            "Get Current Subscription",
+            "GET",
+            "my-subscription",
+            200,
+            token=self.library_token
+        )
+        
+        if success:
+            subscription = subscription_response.get('subscription')
+            if subscription:
+                print(f"   Current subscription: {subscription}")
+            else:
+                print("   No active subscription found (expected for new library)")
+        
+        # Test student trying to create payment order (should fail)
+        if self.student_token:
+            success, _ = self.run_test(
+                "Student Create Payment Order (Should Fail)",
+                "POST",
+                "create-payment-order",
+                403,
+                data=order_data,
+                token=self.student_token
+            )
+        
+        return success
+
+    def test_time_slots_management(self):
+        """Test time slots management functionality"""
+        print("\n" + "="*50)
+        print("TESTING TIME SLOTS MANAGEMENT")
+        print("="*50)
+        
+        if not self.library_token:
+            print("❌ No library token available for time slots testing")
+            return False
+        
+        # First, get the library profile to get library_id
+        success, my_library = self.run_test(
+            "Get Library for Time Slots",
+            "GET",
+            "libraries/my",
+            200,
+            token=self.library_token
+        )
+        
+        if not success:
+            print("❌ Failed to get library profile for time slots testing")
+            return False
+        
+        library_id = my_library.get('id')
+        if not library_id:
+            print("❌ No library ID found")
+            return False
+        
+        # Test creating time slot without subscription (should fail)
+        tomorrow = datetime.now().strftime('%Y-%m-%d')
+        time_slot_data = {
+            "library_id": library_id,
+            "date": tomorrow,
+            "start_time": "09:00",
+            "end_time": "17:00",
+            "available_seats": 25
+        }
+        
+        success, _ = self.run_test(
+            "Create Time Slot Without Subscription (Should Fail)",
+            "POST",
+            "timeslots",
+            403,
+            data=time_slot_data,
+            token=self.library_token
+        )
+        
+        if success:
+            print("   ✅ Correctly blocked time slot creation without subscription")
+        
+        # Test getting time slots for library
+        success, time_slots = self.run_test(
+            "Get Library Time Slots",
+            "GET",
+            f"timeslots/{library_id}",
+            200
+        )
+        
+        if success:
+            print(f"   Found {len(time_slots)} time slots for library")
+        
+        # Test student trying to create time slot (should fail)
+        if self.student_token:
+            success, _ = self.run_test(
+                "Student Create Time Slot (Should Fail)",
+                "POST",
+                "timeslots",
+                403,
+                data=time_slot_data,
+                token=self.student_token
+            )
+        
+        return success
+
+    def test_library_booking_system(self):
+        """Test library booking system"""
+        print("\n" + "="*50)
+        print("TESTING LIBRARY BOOKING SYSTEM")
+        print("="*50)
+        
+        if not self.student_token or not self.library_token:
+            print("❌ Need both student and library tokens for booking testing")
+            return False
+        
+        # Test getting my bookings as student
+        success, student_bookings = self.run_test(
+            "Get Student Bookings",
+            "GET",
+            "bookings/my",
+            200,
+            token=self.student_token
+        )
+        
+        if success:
+            print(f"   Student has {len(student_bookings)} bookings")
+        
+        # Test getting my bookings as library
+        success, library_bookings = self.run_test(
+            "Get Library Bookings",
+            "GET",
+            "bookings/my",
+            200,
+            token=self.library_token
+        )
+        
+        if success:
+            print(f"   Library has {len(library_bookings)} bookings")
+        
+        return success
+
 def main():
     print("🚀 Starting UniNest API Testing")
     print("="*60)
