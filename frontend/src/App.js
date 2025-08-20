@@ -23,7 +23,16 @@ import {
   IndianRupee,
   Heart,
   Send,
-  Filter
+  Filter,
+  ArrowRight,
+  Check,
+  Users,
+  Zap,
+  Shield,
+  Globe,
+  Mail,
+  Phone,
+  ChevronRight
 } from 'lucide-react';
 import { Button } from './components/ui/button';
 import { Input } from './components/ui/input';
@@ -79,8 +88,8 @@ function AuthProvider({ children }) {
     }
   };
 
-  const login = async (email, password) => {
-    const response = await axios.post(`${API}/auth/login`, { email, password });
+  const login = async (email, password, phone) => {
+    const response = await axios.post(`${API}/auth/login`, { email, password, phone });
     const { token: newToken, user: userData } = response.data;
     
     localStorage.setItem('token', newToken);
@@ -142,7 +151,524 @@ const apiRequest = (token) => {
   return instance;
 };
 
-// Login Page
+// Home Page Component
+function HomePage() {
+  const features = [
+    {
+      icon: BookOpen,
+      title: "Book Marketplace",
+      description: "Buy and sell textbooks with fellow students at great prices"
+    },
+    {
+      icon: Building2,
+      title: "Library Booking",
+      description: "Reserve study seats at your favorite libraries instantly"
+    },
+    {
+      icon: Trophy,
+      title: "Competitions",
+      description: "Participate in academic competitions and win prizes"
+    },
+    {
+      icon: FileText,
+      title: "Notes Sharing",
+      description: "Share and access study materials from your community"
+    },
+    {
+      icon: MessageCircle,
+      title: "Social Community",
+      description: "Connect with peers, share experiences, and grow together"
+    },
+    {
+      icon: Users,
+      title: "Library Partners",
+      description: "Libraries can manage bookings and grow their community"
+    }
+  ];
+
+  const stats = [
+    { number: "10,000+", label: "Active Students" },
+    { number: "500+", label: "Partner Libraries" },
+    { number: "50,000+", label: "Books Exchanged" },
+    { number: "1,000+", label: "Study Sessions" }
+  ];
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      {/* Navigation */}
+      <nav className="bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+            <div className="flex items-center space-x-3">
+              <div className="h-10 w-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center">
+                <BookOpen className="h-6 w-6 text-white" />
+              </div>
+              <span className="text-xl font-bold text-gray-900">UniNest</span>
+            </div>
+            
+            <div className="hidden md:flex items-center space-x-8">
+              <Link to="/" className="text-gray-700 hover:text-blue-600 font-medium">Home</Link>
+              <Link to="/about" className="text-gray-700 hover:text-blue-600 font-medium">About</Link>
+              <Link to="/login">
+                <Button className="bg-gradient-to-r from-blue-600 to-purple-600">
+                  Get Started
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      {/* Hero Section */}
+      <section className="px-4 sm:px-6 lg:px-8 py-20">
+        <div className="max-w-7xl mx-auto text-center">
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 mb-6">
+            Your Student Community
+            <span className="block bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              Ecosystem
+            </span>
+          </h1>
+          <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
+            Connect with fellow students, share resources, book study spaces, and participate in competitions. 
+            UniNest is your one-stop platform for academic success.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link to="/login">
+              <Button size="lg" className="bg-gradient-to-r from-blue-600 to-purple-600 px-8">
+                Join as Student
+                <ArrowRight className="h-5 w-5 ml-2" />
+              </Button>
+            </Link>
+            <Link to="/login">
+              <Button size="lg" variant="outline" className="px-8">
+                Register Library
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* Stats Section */}
+      <section className="px-4 sm:px-6 lg:px-8 py-16 bg-white/50">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+            {stats.map((stat, index) => (
+              <div key={index} className="text-center">
+                <div className="text-3xl font-bold text-blue-600 mb-2">{stat.number}</div>
+                <div className="text-gray-600">{stat.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section className="px-4 sm:px-6 lg:px-8 py-20">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
+              Everything You Need
+            </h2>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+              From buying textbooks to booking library seats, UniNest has all the tools you need for academic success.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {features.map((feature, index) => (
+              <Card key={index} className="hover:shadow-xl transition-all duration-300 border-0 bg-white/80 backdrop-blur-sm">
+                <CardHeader>
+                  <div className="h-12 w-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center mb-4">
+                    <feature.icon className="h-6 w-6 text-white" />
+                  </div>
+                  <CardTitle className="text-xl">{feature.title}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-600">{feature.description}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="px-4 sm:px-6 lg:px-8 py-20 bg-gradient-to-r from-blue-600 to-purple-600">
+        <div className="max-w-4xl mx-auto text-center">
+          <h2 className="text-3xl sm:text-4xl font-bold text-white mb-6">
+            Ready to Join UniNest?
+          </h2>
+          <p className="text-xl text-blue-100 mb-8">
+            Join thousands of students and libraries already using UniNest to enhance their academic journey.
+          </p>
+          <Link to="/login">
+            <Button size="lg" className="bg-white text-blue-600 hover:bg-gray-50 px-8">
+              Get Started Today
+            </Button>
+          </Link>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="bg-gray-900 text-white px-4 sm:px-6 lg:px-8 py-12">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+            <div className="col-span-2">
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="h-10 w-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center">
+                  <BookOpen className="h-6 w-6 text-white" />
+                </div>
+                <span className="text-xl font-bold">UniNest</span>
+              </div>
+              <p className="text-gray-400 mb-4 max-w-md">
+                Empowering students and libraries to build stronger educational communities across India.
+              </p>
+              <div className="flex space-x-4">
+                <Mail className="h-5 w-5 text-gray-400" />
+                <span className="text-gray-400">hello@uninest.com</span>
+              </div>
+            </div>
+            
+            <div>
+              <h3 className="font-semibold mb-4">Platform</h3>
+              <ul className="space-y-2 text-gray-400">
+                <li><Link to="/about" className="hover:text-white">About Us</Link></li>
+                <li><Link to="/login" className="hover:text-white">For Students</Link></li>
+                <li><Link to="/login" className="hover:text-white">For Libraries</Link></li>
+              </ul>
+            </div>
+            
+            <div>
+              <h3 className="font-semibold mb-4">Support</h3>
+              <ul className="space-y-2 text-gray-400">
+                <li><a href="#" className="hover:text-white">Help Center</a></li>
+                <li><a href="#" className="hover:text-white">Contact Us</a></li>
+                <li><a href="#" className="hover:text-white">Privacy Policy</a></li>
+              </ul>
+            </div>
+          </div>
+          
+          <Separator className="my-8 bg-gray-800" />
+          <div className="text-center text-gray-400">
+            <p>&copy; 2024 UniNest. All rights reserved.</p>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+// About Us Page Component
+function AboutPage() {
+  const teamValues = [
+    {
+      icon: Users,
+      title: "Community First",
+      description: "We believe in the power of student communities to drive learning and growth."
+    },
+    {
+      icon: Zap,
+      title: "Innovation",
+      description: "Continuously evolving to meet the changing needs of modern education."
+    },
+    {
+      icon: Shield,
+      title: "Trust & Security",
+      description: "Building safe, secure platforms where students can connect with confidence."
+    },
+    {
+      icon: Globe,
+      title: "Accessibility",
+      description: "Making quality educational resources accessible to students everywhere."
+    }
+  ];
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      {/* Navigation */}
+      <nav className="bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+            <Link to="/" className="flex items-center space-x-3">
+              <div className="h-10 w-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center">
+                <BookOpen className="h-6 w-6 text-white" />
+              </div>
+              <span className="text-xl font-bold text-gray-900">UniNest</span>
+            </Link>
+            
+            <div className="hidden md:flex items-center space-x-8">
+              <Link to="/" className="text-gray-700 hover:text-blue-600 font-medium">Home</Link>
+              <Link to="/about" className="text-blue-600 font-medium">About</Link>
+              <Link to="/login">
+                <Button className="bg-gradient-to-r from-blue-600 to-purple-600">
+                  Get Started
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      {/* Hero Section */}
+      <section className="px-4 sm:px-6 lg:px-8 py-20">
+        <div className="max-w-4xl mx-auto text-center">
+          <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-6">
+            About
+            <span className="block bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              UniNest
+            </span>
+          </h1>
+          <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
+            We're on a mission to transform how students and libraries connect, collaborate, and thrive together in the digital age.
+          </p>
+        </div>
+      </section>
+
+      {/* Mission & Vision */}
+      <section className="px-4 sm:px-6 lg:px-8 py-16">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+            <Card className="border-0 bg-white/80 backdrop-blur-sm shadow-xl">
+              <CardHeader>
+                <CardTitle className="text-2xl text-blue-600 mb-4">Our Mission</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-700 text-lg leading-relaxed">
+                  UniNest exists to create a vibrant marketplace and community built exclusively for students and libraries across India. 
+                  We empower learners to easily exchange textbooks, share study notes, book library seats, join competitions, 
+                  and engage with peers—all within one seamless, mobile-friendly ecosystem.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="border-0 bg-white/80 backdrop-blur-sm shadow-xl">
+              <CardHeader>
+                <CardTitle className="text-2xl text-purple-600 mb-4">Our Vision</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-700 text-lg leading-relaxed">
+                  To become India's leading student-centric platform that democratizes access to quality study resources and spaces, 
+                  inspiring peer mentorship, group studies, and creative academic competitions while ensuring every student, 
+                  regardless of location or background, has the tools and community support to achieve their dreams.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* Who We Serve */}
+      <section className="px-4 sm:px-6 lg:px-8 py-16 bg-white/50">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">Who We Serve</h2>
+            <p className="text-xl text-gray-600">Building bridges between students and educational institutions</p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <Card className="border-0 bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-xl">
+              <CardHeader>
+                <div className="h-12 w-12 bg-white/20 rounded-xl flex items-center justify-center mb-4">
+                  <Users className="h-6 w-6" />
+                </div>
+                <CardTitle className="text-2xl">Students</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-blue-100 mb-4">
+                  From freshers to final-year scholars, UniNest is your go-to hub for exchanging educational resources, 
+                  participating in academic competitions, connecting with study groups, and discovering opportunities tailored for your success.
+                </p>
+                <ul className="space-y-2">
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4" />
+                    <span>Buy & sell textbooks</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4" />
+                    <span>Share study notes</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4" />
+                    <span>Book library seats</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4" />
+                    <span>Join competitions</span>
+                  </li>
+                </ul>
+              </CardContent>
+            </Card>
+
+            <Card className="border-0 bg-gradient-to-br from-purple-600 to-purple-700 text-white shadow-xl">
+              <CardHeader>
+                <div className="h-12 w-12 bg-white/20 rounded-xl flex items-center justify-center mb-4">
+                  <Building2 className="h-6 w-6" />
+                </div>
+                <CardTitle className="text-2xl">Libraries</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-purple-100 mb-4">
+                  We empower libraries with smart booking systems and subscription management, enabling them to offer better facilities 
+                  and services while building stronger relationships with their student communities.
+                </p>
+                <ul className="space-y-2">
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4" />
+                    <span>Manage bookings efficiently</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4" />
+                    <span>Flexible subscription plans</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4" />
+                    <span>Connect with students</span>
+                  </li>
+                  <li className="flex items-center space-x-2">
+                    <Check className="h-4 w-4" />
+                    <span>Grow your community</span>
+                  </li>
+                </ul>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* Our Values */}
+      <section className="px-4 sm:px-6 lg:px-8 py-16">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">Our Values</h2>
+            <p className="text-xl text-gray-600">The principles that guide everything we do</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {teamValues.map((value, index) => (
+              <Card key={index} className="border-0 bg-white/80 backdrop-blur-sm shadow-lg hover:shadow-xl transition-all duration-300">
+                <CardHeader>
+                  <div className="h-12 w-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center mb-4">
+                    <value.icon className="h-6 w-6 text-white" />
+                  </div>
+                  <CardTitle className="text-xl">{value.title}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-600">{value.description}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Future Vision */}
+      <section className="px-4 sm:px-6 lg:px-8 py-16 bg-gradient-to-r from-blue-600 to-purple-600">
+        <div className="max-w-4xl mx-auto text-center">
+          <h2 className="text-3xl font-bold text-white mb-6">Our Vision for the Future</h2>
+          <p className="text-xl text-blue-100 mb-8">
+            We're just getting started. Here's what we envision for the future of student communities:
+          </p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left">
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6">
+              <h3 className="text-white font-semibold mb-2">Expanding Reach</h3>
+              <p className="text-blue-100">
+                Growing into tier 2 and 3 cities to democratize access to quality study resources and spaces nationwide.
+              </p>
+            </div>
+            
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6">
+              <h3 className="text-white font-semibold mb-2">AI-Powered Learning</h3>
+              <p className="text-blue-100">
+                Introducing AI-driven personalized learning recommendations and intelligent study aids.
+              </p>
+            </div>
+            
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6">
+              <h3 className="text-white font-semibold mb-2">Social Learning Network</h3>
+              <p className="text-blue-100">
+                Building a vibrant social network that inspires peer mentorship and collaborative learning.
+              </p>
+            </div>
+            
+            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6">
+              <h3 className="text-white font-semibold mb-2">Seamless Integration</h3>
+              <p className="text-blue-100">
+                Launching comprehensive payment and subscription services for sustainable growth.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="px-4 sm:px-6 lg:px-8 py-20 bg-white">
+        <div className="max-w-4xl mx-auto text-center">
+          <h2 className="text-3xl font-bold text-gray-900 mb-6">
+            Join Us at UniNest
+          </h2>
+          <p className="text-xl text-gray-600 mb-8">
+            Where students find their place to learn, connect, and grow.
+          </p>
+          <Link to="/login">
+            <Button size="lg" className="bg-gradient-to-r from-blue-600 to-purple-600 px-8">
+              Get Started Today
+              <ArrowRight className="h-5 w-5 ml-2" />
+            </Button>
+          </Link>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="bg-gray-900 text-white px-4 sm:px-6 lg:px-8 py-12">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+            <div className="col-span-2">
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="h-10 w-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center">
+                  <BookOpen className="h-6 w-6 text-white" />
+                </div>
+                <span className="text-xl font-bold">UniNest</span>
+              </div>
+              <p className="text-gray-400 mb-4 max-w-md">
+                Empowering students and libraries to build stronger educational communities across India.
+              </p>
+              <div className="flex space-x-4">
+                <Mail className="h-5 w-5 text-gray-400" />
+                <span className="text-gray-400">hello@uninest.com</span>
+              </div>
+            </div>
+            
+            <div>
+              <h3 className="font-semibold mb-4">Platform</h3>
+              <ul className="space-y-2 text-gray-400">
+                <li><Link to="/about" className="hover:text-white">About Us</Link></li>
+                <li><Link to="/login" className="hover:text-white">For Students</Link></li>
+                <li><Link to="/login" className="hover:text-white">For Libraries</Link></li>
+              </ul>
+            </div>
+            
+            <div>
+              <h3 className="font-semibold mb-4">Support</h3>
+              <ul className="space-y-2 text-gray-400">
+                <li><a href="#" className="hover:text-white">Help Center</a></li>
+                <li><a href="#" className="hover:text-white">Contact Us</a></li>
+                <li><a href="#" className="hover:text-white">Privacy Policy</a></li>
+              </ul>
+            </div>
+          </div>
+          
+          <Separator className="my-8 bg-gray-800" />
+          <div className="text-center text-gray-400">
+            <p>&copy; 2024 UniNest. All rights reserved.</p>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+// Login Page Component
 function LoginPage() {
   const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({
@@ -158,13 +684,29 @@ function LoginPage() {
   const { login, register } = useAuth();
   const { toast } = useToast();
 
+  const validatePhoneNumber = (phone) => {
+    const phoneRegex = /^[6-9]\d{9}$/;
+    return phoneRegex.test(phone);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
+    // Validate phone number
+    if (!validatePhoneNumber(formData.phone)) {
+      toast({
+        title: "Invalid Phone Number",
+        description: "Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9",
+        variant: "destructive"
+      });
+      setLoading(false);
+      return;
+    }
+
     try {
       if (isLogin) {
-        await login(formData.email, formData.password);
+        await login(formData.email, formData.password, formData.phone);
         toast({ title: "Login successful!" });
       } else {
         await register(formData);
@@ -182,97 +724,126 @@ function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-4">
-      <div className="max-w-md w-full space-y-8">
-        <div className="text-center">
-          <div className="mx-auto h-16 w-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center mb-4">
-            <BookOpen className="h-8 w-8 text-white" />
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      {/* Navigation */}
+      <nav className="bg-white/80 backdrop-blur-md border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+            <Link to="/" className="flex items-center space-x-3">
+              <div className="h-10 w-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center">
+                <BookOpen className="h-6 w-6 text-white" />
+              </div>
+              <span className="text-xl font-bold text-gray-900">UniNest</span>
+            </Link>
+            
+            <div className="hidden md:flex items-center space-x-8">
+              <Link to="/" className="text-gray-700 hover:text-blue-600 font-medium">Home</Link>
+              <Link to="/about" className="text-gray-700 hover:text-blue-600 font-medium">About</Link>
+            </div>
           </div>
-          <h2 className="text-3xl font-bold text-gray-900 tracking-tight">UniNest</h2>
-          <p className="text-gray-600 mt-2">Your student community platform</p>
         </div>
+      </nav>
 
-        <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
-          <CardHeader>
-            <CardTitle>{isLogin ? 'Sign In' : 'Create Account'}</CardTitle>
-            <CardDescription>
-              {isLogin ? 'Welcome back to UniNest' : 'Join the UniNest community'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {!isLogin && (
-                <>
+      {/* Login Form */}
+      <div className="flex items-center justify-center p-4 min-h-[calc(100vh-80px)]">
+        <div className="max-w-md w-full space-y-8">
+          <div className="text-center">
+            <div className="mx-auto h-16 w-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center mb-4">
+              <BookOpen className="h-8 w-8 text-white" />
+            </div>
+            <h2 className="text-3xl font-bold text-gray-900 tracking-tight">UniNest</h2>
+            <p className="text-gray-600 mt-2">Your student community platform</p>
+          </div>
+
+          <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle>{isLogin ? 'Sign In' : 'Create Account'}</CardTitle>
+              <CardDescription>
+                {isLogin ? 'Welcome back to UniNest' : 'Join the UniNest community'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {!isLogin && (
+                  <>
+                    <Input
+                      placeholder="Full Name"
+                      value={formData.name}
+                      onChange={(e) => setFormData({...formData, name: e.target.value})}
+                      required
+                    />
+                    <Select value={formData.role} onValueChange={(value) => setFormData({...formData, role: value})}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select your role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="student">Student</SelectItem>
+                        <SelectItem value="library">Library</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      placeholder="Location"
+                      value={formData.location}
+                      onChange={(e) => setFormData({...formData, location: e.target.value})}
+                      required
+                    />
+                  </>
+                )}
+                
+                <Input
+                  type="email"
+                  placeholder="Email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({...formData, email: e.target.value})}
+                  required
+                />
+                
+                <Input
+                  type="password"
+                  placeholder="Password"
+                  value={formData.password}
+                  onChange={(e) => setFormData({...formData, password: e.target.value})}
+                  required
+                />
+
+                <div className="space-y-2">
                   <Input
-                    placeholder="Full Name"
-                    value={formData.name}
-                    onChange={(e) => setFormData({...formData, name: e.target.value})}
-                    required
-                  />
-                  <Select value={formData.role} onValueChange={(value) => setFormData({...formData, role: value})}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select your role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="student">Student</SelectItem>
-                      <SelectItem value="library">Library</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Input
-                    placeholder="Location"
-                    value={formData.location}
-                    onChange={(e) => setFormData({...formData, location: e.target.value})}
-                    required
-                  />
-                  <Input
-                    placeholder="Phone (optional)"
+                    type="tel"
+                    placeholder="Phone Number (10 digits)"
                     value={formData.phone}
                     onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                    required
+                    maxLength={10}
                   />
-                </>
-              )}
-              
-              <Input
-                type="email"
-                placeholder="Email"
-                value={formData.email}
-                onChange={(e) => setFormData({...formData, email: e.target.value})}
-                required
-              />
-              
-              <Input
-                type="password"
-                placeholder="Password"
-                value={formData.password}
-                onChange={(e) => setFormData({...formData, password: e.target.value})}
-                required
-              />
+                  <p className="text-xs text-gray-500">Enter 10-digit mobile number (e.g., 9876543210)</p>
+                </div>
 
-              {!isLogin && (
-                <Textarea
-                  placeholder="Bio (optional)"
-                  value={formData.bio}
-                  onChange={(e) => setFormData({...formData, bio: e.target.value})}
-                  rows={3}
-                />
-              )}
+                {!isLogin && (
+                  <Textarea
+                    placeholder="Bio (optional)"
+                    value={formData.bio}
+                    onChange={(e) => setFormData({...formData, bio: e.target.value})}
+                    rows={3}
+                  />
+                )}
 
-              <Button type="submit" className="w-full bg-gradient-to-r from-blue-600 to-purple-600" disabled={loading}>
-                {loading ? 'Processing...' : (isLogin ? 'Sign In' : 'Create Account')}
-              </Button>
-            </form>
+                <Button type="submit" className="w-full bg-gradient-to-r from-blue-600 to-purple-600" disabled={loading}>
+                  {loading ? 'Processing...' : (isLogin ? 'Sign In' : 'Create Account')}
+                </Button>
+              </form>
 
-            <div className="mt-4 text-center">
-              <button
-                type="button"
-                onClick={() => setIsLogin(!isLogin)}
-                className="text-blue-600 hover:text-blue-800 text-sm"
-              >
-                {isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
-              </button>
-            </div>
-          </CardContent>
-        </Card>
+              <div className="mt-4 text-center">
+                <button
+                  type="button"
+                  onClick={() => setIsLogin(!isLogin)}
+                  className="text-blue-600 hover:text-blue-800 text-sm"
+                >
+                  {isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
+                </button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );
@@ -873,6 +1444,18 @@ function AppLayout() {
   );
 }
 
+// Public Routes Wrapper
+function PublicRoutes() {
+  return (
+    <Routes>
+      <Route path="/" element={<HomePage />} />
+      <Route path="/about" element={<AboutPage />} />
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+}
+
 // Main App Component
 function App() {
   return (
@@ -901,7 +1484,7 @@ function AuthWrapper() {
     );
   }
   
-  return isAuthenticated ? <AppLayout /> : <LoginPage />;
+  return isAuthenticated ? <AppLayout /> : <PublicRoutes />;
 }
 
 export default App;
