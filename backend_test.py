@@ -4,7 +4,7 @@ import json
 from datetime import datetime
 
 class UniNestAPITester:
-    def __init__(self, base_url="https://learnhive-3.preview.emergentagent.com"):
+    def __init__(self, base_url="https://uninest-app.preview.emergentagent.com"):
         self.base_url = base_url
         self.api_url = f"{base_url}/api"
         self.student_token = None
