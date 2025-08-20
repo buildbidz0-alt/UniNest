@@ -362,15 +362,21 @@ async def register(user_data: UserCreate):
 
 @api_router.post("/auth/login", response_model=Dict[str, Any])
 async def login(user_data: UserLogin):
-    # Validate phone number format
-    if not validate_indian_phone(user_data.phone):
-        raise HTTPException(status_code=400, detail="Invalid phone number format")
+    # Determine if identifier is email or phone
+    identifier = user_data.identifier
+    query = {}
     
-    # Find user by email and phone
-    user = await db.users.find_one({
-        "email": user_data.email,
-        "phone": user_data.phone
-    })
+    if '@' in identifier:
+        # Login with email
+        query["email"] = identifier
+    else:
+        # Login with phone
+        if not validate_indian_phone(identifier):
+            raise HTTPException(status_code=400, detail="Invalid phone number format")
+        query["phone"] = identifier
+    
+    # Find user by email or phone
+    user = await db.users.find_one(query)
     
     if not user or not verify_password(user_data.password, user["password"]):
         raise HTTPException(status_code=401, detail="Invalid credentials")
