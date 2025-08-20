@@ -145,14 +145,17 @@ class UniNestAPITester:
         print("TESTING STUDENT REGISTRATION")
         print("="*50)
         
+        # Use timestamp to ensure unique email/phone
+        timestamp = str(int(datetime.now().timestamp()))
+        
         student_data = {
             "name": "Test Student",
-            "email": "student@test.com",
+            "email": f"student{timestamp}@test.com",
             "password": "test123",
             "role": "student",
             "location": "Mumbai",
             "bio": "Test student bio",
-            "phone": "9876543210"
+            "phone": f"987654{timestamp[-4:]}"
         }
         
         success, response = self.run_test(
@@ -176,14 +179,17 @@ class UniNestAPITester:
         print("TESTING LIBRARY REGISTRATION")
         print("="*50)
         
+        # Use timestamp to ensure unique email/phone
+        timestamp = str(int(datetime.now().timestamp()))
+        
         library_data = {
             "name": "Test Library",
-            "email": "library@test.com",
+            "email": f"library{timestamp}@test.com",
             "password": "test123",
             "role": "library",
             "location": "Delhi",
             "bio": "Test library bio",
-            "phone": "9876543211"
+            "phone": f"876543{timestamp[-4:]}"
         }
         
         success, response = self.run_test(
