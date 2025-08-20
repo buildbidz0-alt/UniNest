@@ -213,9 +213,13 @@ class UniNestAPITester:
         print("TESTING FLEXIBLE LOGIN SYSTEM")
         print("="*50)
         
+        if not self.student_user or not self.library_user:
+            print("❌ Need registered users for authentication testing")
+            return False
+        
         # Test student login with email
         student_login_email = {
-            "identifier": "student@test.com",
+            "identifier": self.student_user['email'],
             "password": "test123"
         }
         
@@ -228,13 +232,11 @@ class UniNestAPITester:
         )
         
         if success and 'token' in response:
-            self.student_token = response['token']
-            self.student_user = response['user']
             print("   Student login with email successful")
         
         # Test student login with phone number
         student_login_phone = {
-            "identifier": "9876543210",
+            "identifier": self.student_user['phone'],
             "password": "test123"
         }
         
@@ -251,7 +253,7 @@ class UniNestAPITester:
         
         # Test library login with email
         library_login_email = {
-            "identifier": "library@test.com",
+            "identifier": self.library_user['email'],
             "password": "test123"
         }
         
@@ -264,13 +266,11 @@ class UniNestAPITester:
         )
         
         if success and 'token' in response:
-            self.library_token = response['token']
-            self.library_user = response['user']
             print("   Library login with email successful")
         
         # Test library login with phone
         library_login_phone = {
-            "identifier": "9876543211",
+            "identifier": self.library_user['phone'],
             "password": "test123"
         }
         
@@ -287,7 +287,7 @@ class UniNestAPITester:
         
         # Test login with invalid credentials
         invalid_login = {
-            "identifier": "student@test.com",
+            "identifier": self.student_user['email'],
             "password": "wrongpassword"
         }
         
