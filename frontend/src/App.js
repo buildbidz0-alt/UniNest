@@ -2896,6 +2896,410 @@ function Subscription() {
   );
 }
 
+// Admin Dashboard Component
+function AdminDashboard() {
+  const { user, token } = useAuth();
+  const [stats, setStats] = useState(null);
+  const [users, setUsers] = useState([]);
+  const [books, setBooks] = useState([]);
+  const [adminActions, setAdminActions] = useState([]);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (user?.role === 'admin') {
+      fetchAdminData();
+    }
+  }, [user]);
+
+  const fetchAdminData = async () => {
+    setLoading(true);
+    try {
+      const api = apiRequest(token);
+      const [statsResponse, usersResponse, booksResponse, actionsResponse] = await Promise.allSettled([
+        api.get('/admin/stats'),
+        api.get('/admin/users'),
+        api.get('/admin/content/books'),
+        api.get('/admin/actions')
+      ]);
+
+      if (statsResponse.status === 'fulfilled') {
+        setStats(statsResponse.value.data);
+      }
+      if (usersResponse.status === 'fulfilled') {
+        setUsers(Array.isArray(usersResponse.value.data) ? usersResponse.value.data : []);
+      }
+      if (booksResponse.status === 'fulfilled') {
+        setBooks(Array.isArray(booksResponse.value.data) ? booksResponse.value.data : []);
+      }
+      if (actionsResponse.status === 'fulfilled') {
+        setAdminActions(Array.isArray(actionsResponse.value.data) ? actionsResponse.value.data : []);
+      }
+    } catch (error) {
+      console.error('Error fetching admin data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUserAction = async (userId, action, reason = '') => {
+    try {
+      const api = apiRequest(token);
+      await api.post(`/admin/users/${userId}/manage`, {
+        action,
+        reason
+      });
+
+      toast({
+        title: "Success",
+        description: `User ${action} successfully`
+      });
+
+      fetchAdminData(); // Refresh data
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error.response?.data?.detail || `Failed to ${action} user`,
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDeleteBook = async (bookId) => {
+    try {
+      const api = apiRequest(token);
+      await api.delete(`/admin/content/books/${bookId}`);
+
+      toast({
+        title: "Success",
+        description: "Book deleted successfully"
+      });
+
+      fetchAdminData(); // Refresh data
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete book",
+        variant: "destructive"
+      });
+    }
+  };
+
+  if (user?.role !== 'admin') {
+    return (
+      <div className="p-6">
+        <Card>
+          <CardContent className="p-6">
+            <div className="text-center">
+              <Shield className="h-12 w-12 text-red-500 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Access Denied</h3>
+              <p className="text-gray-600">Admin access required to view this page.</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="p-6">
+        <div className="flex items-center justify-center min-h-96">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
+        <Badge variant="secondary" className="px-3 py-1">
+          <Shield className="h-4 w-4 mr-1" />
+          Administrator
+        </Badge>
+      </div>
+
+      {/* Stats Overview */}
+      {stats && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg flex items-center">
+                <Users className="h-5 w-5 mr-2 text-blue-600" />
+                Users
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Total Users:</span>
+                  <span className="font-semibold">{stats.users.total}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Students:</span>
+                  <span className="font-semibold text-blue-600">{stats.users.students}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Libraries:</span>
+                  <span className="font-semibold text-green-600">{stats.users.libraries}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Active:</span>
+                  <span className="font-semibold text-emerald-600">{stats.users.active}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg flex items-center">
+                <BookOpen className="h-5 w-5 mr-2 text-purple-600" />
+                Content
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Books:</span>
+                  <span className="font-semibold">{stats.content.books}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Messages:</span>
+                  <span className="font-semibold">{stats.content.messages}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Bookings:</span>
+                  <span className="font-semibold">{stats.content.bookings}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Competitions:</span>
+                  <span className="font-semibold">{stats.content.competitions}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg flex items-center">
+                <CreditCard className="h-5 w-5 mr-2 text-green-600" />
+                Subscriptions
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Active:</span>
+                  <span className="font-semibold">{stats.subscriptions.active}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Trial:</span>
+                  <span className="font-semibold text-blue-600">{stats.subscriptions.trial}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Paid:</span>
+                  <span className="font-semibold text-green-600">{stats.subscriptions.paid}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Tab Navigation */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="users">User Management</TabsTrigger>
+          <TabsTrigger value="content">Content Moderation</TabsTrigger>
+          <TabsTrigger value="actions">Admin Actions</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Activity</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-8 text-gray-500">
+                <Settings className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                <p>Platform overview and recent activity will appear here</p>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="users" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>User Management</CardTitle>
+              <CardDescription>
+                Manage all users on the platform
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {users.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <Users className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                    <p>No users found</p>
+                  </div>
+                ) : (
+                  users.filter(u => u.role !== 'admin').map((user) => (
+                    <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="flex items-center space-x-4">
+                        <Avatar>
+                          <AvatarFallback>
+                            {user.name.slice(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <h4 className="font-semibold">{user.name}</h4>
+                          <p className="text-sm text-gray-600">{user.email}</p>
+                          <div className="flex items-center space-x-2 mt-1">
+                            <Badge variant={user.role === 'student' ? 'default' : 'secondary'}>
+                              {user.role}
+                            </Badge>
+                            <Badge variant={user.is_active ? 'default' : 'destructive'}>
+                              {user.is_active ? 'Active' : 'Inactive'}
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex space-x-2">
+                        {user.is_active ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleUserAction(user.id, 'suspend', 'Suspended by admin')}
+                          >
+                            Suspend
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleUserAction(user.id, 'activate', 'Activated by admin')}
+                          >
+                            Activate
+                          </Button>
+                        )}
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleUserAction(user.id, 'delete', 'Deleted by admin')}
+                        >
+                          <Trash className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="content" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Content Moderation</CardTitle>
+              <CardDescription>
+                Review and moderate user-generated content
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {books.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <BookOpen className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                    <p>No books found</p>
+                  </div>
+                ) : (
+                  books.map((item) => (
+                    <div key={item.book.id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="flex items-center space-x-4">
+                        {item.book.image_url && (
+                          <img 
+                            src={item.book.image_url} 
+                            alt={item.book.title}
+                            className="w-12 h-12 object-cover rounded"
+                          />
+                        )}
+                        <div>
+                          <h4 className="font-semibold">{item.book.title}</h4>
+                          <p className="text-sm text-gray-600">by {item.book.author}</p>
+                          <p className="text-sm text-gray-500">Seller: {item.seller.name}</p>
+                          <div className="flex items-center space-x-2 mt-1">
+                            <Badge variant="outline">₹{item.book.price}</Badge>
+                            <Badge variant="secondary">{item.book.condition}</Badge>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex space-x-2">
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleDeleteBook(item.book.id)}
+                        >
+                          <Trash className="h-4 w-4 mr-1" />
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="actions" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Admin Actions Log</CardTitle>
+              <CardDescription>
+                Audit trail of all administrative actions
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {adminActions.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <Settings className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                    <p>No admin actions recorded</p>
+                  </div>
+                ) : (
+                  adminActions.slice(0, 20).map((item) => (
+                    <div key={item.action.id} className="flex items-center justify-between p-3 border rounded">
+                      <div>
+                        <p className="font-medium">{item.action.action_type.replace('_', ' ').toUpperCase()}</p>
+                        <p className="text-sm text-gray-600">
+                          by {item.admin_name} on {item.action.target_type}
+                        </p>
+                        {item.action.reason && (
+                          <p className="text-xs text-gray-500">Reason: {item.action.reason}</p>
+                        )}
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        {new Date(item.action.created_at).toLocaleDateString()}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
 // Messages/Chat System Component
 function Messages() {
   const { user, token } = useAuth();
