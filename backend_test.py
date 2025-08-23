@@ -1988,7 +1988,7 @@ def main():
     
     tester = UniNestAPITester()
     
-    # Test sequence - focusing on Chat System and existing functionality
+    # Test sequence - focusing on Admin Panel System and existing functionality
     tests = [
         ("Health Check", tester.test_health_check),
         ("Phone Number Validation", tester.test_phone_number_validation),
@@ -1996,7 +1996,18 @@ def main():
         ("Library Registration", tester.test_library_registration),
         ("Authentication", tester.test_authentication),
         ("Profile Access", tester.test_profile_access),
-        ("Chat System", tester.test_chat_system),  # NEW: Comprehensive chat system testing
+        # NEW: Comprehensive Admin Panel Testing
+        ("Admin Login", tester.test_admin_login),
+        ("Admin Registration Blocked", tester.test_admin_registration_blocked),
+        ("Admin Authentication", tester.test_admin_authentication),
+        ("Admin Dashboard Stats", tester.test_admin_dashboard_stats),
+        ("Admin User Management", tester.test_admin_user_management),
+        ("Admin Content Moderation", tester.test_admin_content_moderation),
+        ("Admin Action Logging", tester.test_admin_action_logging),
+        ("Admin Security Validation", tester.test_admin_security_validation),
+        ("Admin Comprehensive Workflow", tester.test_admin_comprehensive_workflow),
+        # Existing functionality tests
+        ("Chat System", tester.test_chat_system),
         ("Library Profile Management", tester.test_library_profile_management),
         ("Free Trial System", tester.test_free_trial_system),
         ("Razorpay Integration", tester.test_razorpay_integration),
@@ -2008,7 +2019,7 @@ def main():
         ("Competitions", tester.test_competitions),
         ("Notes Sharing", tester.test_notes_sharing),
         ("Social Feed", tester.test_social_feed),
-        ("Messaging", tester.test_messaging)  # Keep existing basic messaging test
+        ("Messaging", tester.test_messaging)
     ]
     
     failed_tests = []
