@@ -1207,7 +1207,7 @@ def main():
     
     tester = UniNestAPITester()
     
-    # Test sequence
+    # Test sequence - focusing on Razorpay integration and free trial system
     tests = [
         ("Health Check", tester.test_health_check),
         ("Phone Number Validation", tester.test_phone_number_validation),
@@ -1215,13 +1215,14 @@ def main():
         ("Library Registration", tester.test_library_registration),
         ("Authentication", tester.test_authentication),
         ("Profile Access", tester.test_profile_access),
-        ("Dashboard Stats", tester.test_dashboard_stats),
         ("Library Profile Management", tester.test_library_profile_management),
-        ("Subscription System", tester.test_subscription_system),
+        ("Free Trial System", tester.test_free_trial_system),
+        ("Razorpay Integration", tester.test_razorpay_integration),
+        ("Dashboard with Subscription", tester.test_dashboard_with_subscription),
         ("Time Slots Management", tester.test_time_slots_management),
+        ("Subscription Edge Cases", tester.test_subscription_edge_cases),
         ("Library Booking System", tester.test_library_booking_system),
         ("Book Marketplace", tester.test_book_marketplace),
-        ("Subscription Plans", tester.test_subscription_plans),
         ("Competitions", tester.test_competitions),
         ("Notes Sharing", tester.test_notes_sharing),
         ("Social Feed", tester.test_social_feed),
