@@ -2907,7 +2907,7 @@ function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-        <div className="App h-screen overflow-hidden">
+        <div className="App min-h-screen">
           <AuthWrapper />
           <Toaster />
         </div>
