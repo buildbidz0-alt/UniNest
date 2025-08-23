@@ -3309,6 +3309,571 @@ function AdminDashboard() {
   );
 }
 
+// Competitions Component
+function Competitions() {
+  const { user, token } = useAuth();
+  const [Razorpay] = useRazorpay();
+  const [competitions, setCompetitions] = useState([]);
+  const [myCompetitions, setMyCompetitions] = useState([]);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  const [newCompetition, setNewCompetition] = useState({
+    title: '',
+    category: '',
+    description: '',
+    rules: '',
+    deadline: '',
+    prizes: [''],
+    entry_fee: 0,
+    max_participants: '',
+    image_url: ''
+  });
+
+  useEffect(() => {
+    fetchCompetitions();
+    if (user?.role === 'student') {
+      fetchMyCompetitions();
+    }
+  }, [user]);
+
+  const fetchCompetitions = async () => {
+    try {
+      const api = apiRequest(token);
+      const response = await api.get('/competitions');
+      setCompetitions(Array.isArray(response.data) ? response.data : []);
+    } catch (error) {
+      console.error('Error fetching competitions:', error);
+      setCompetitions([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchMyCompetitions = async () => {
+    try {
+      const api = apiRequest(token);
+      const response = await api.get('/competitions/my');
+      setMyCompetitions(Array.isArray(response.data) ? response.data : []);
+    } catch (error) {
+      console.error('Error fetching my competitions:', error);
+      setMyCompetitions([]);
+    }
+  };
+
+  const handleCreateCompetition = async (e) => {
+    e.preventDefault();
+    try {
+      const api = apiRequest(token);
+      
+      const competitionData = {
+        ...newCompetition,
+        deadline: new Date(newCompetition.deadline).toISOString(),
+        entry_fee: parseInt(newCompetition.entry_fee) * 100, // Convert to paise
+        max_participants: newCompetition.max_participants ? parseInt(newCompetition.max_participants) : null,
+        prizes: newCompetition.prizes.filter(prize => prize.trim() !== '')
+      };
+
+      await api.post('/admin/competitions', competitionData);
+      
+      toast({
+        title: "Success",
+        description: "Competition created successfully!"
+      });
+
+      setShowCreateForm(false);
+      setNewCompetition({
+        title: '',
+        category: '',
+        description: '',
+        rules: '',
+        deadline: '',
+        prizes: [''],
+        entry_fee: 0,
+        max_participants: '',
+        image_url: ''
+      });
+      fetchCompetitions();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error.response?.data?.detail || "Failed to create competition",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleRegisterCompetition = async (competition) => {
+    if (competition.entry_fee === 0) {
+      // Free competition - direct registration
+      try {
+        const api = apiRequest(token);
+        await api.post(`/competitions/${competition.id}/register`);
+        
+        toast({
+          title: "Success",
+          description: "Successfully registered for competition!"
+        });
+        
+        fetchCompetitions();
+        fetchMyCompetitions();
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: error.response?.data?.detail || "Registration failed",
+          variant: "destructive"
+        });
+      }
+    } else {
+      // Paid competition - create payment order
+      handlePaymentRegistration(competition);
+    }
+  };
+
+  const handlePaymentRegistration = async (competition) => {
+    try {
+      const api = apiRequest(token);
+      const response = await api.post(`/competitions/${competition.id}/payment`, {
+        competition_id: competition.id,
+        amount: competition.entry_fee
+      });
+
+      const options = {
+        key: response.data.key,
+        amount: response.data.amount,
+        currency: response.data.currency,
+        name: "UniNest Competition",
+        description: `Entry fee for ${competition.title}`,
+        order_id: response.data.order_id,
+        handler: async (paymentResponse) => {
+          try {
+            await api.post(`/competitions/${competition.id}/payment/verify`, {
+              razorpay_order_id: paymentResponse.razorpay_order_id,
+              razorpay_payment_id: paymentResponse.razorpay_payment_id,
+              razorpay_signature: paymentResponse.razorpay_signature
+            });
+            
+            toast({
+              title: "Success",
+              description: "Payment successful! You're now registered for the competition."
+            });
+            
+            fetchCompetitions();
+            fetchMyCompetitions();
+          } catch (error) {
+            toast({
+              title: "Payment Verification Failed",
+              description: "Please contact support",
+              variant: "destructive"
+            });
+          }
+        },
+        prefill: {
+          name: user.name,
+          email: user.email,
+          contact: user.phone
+        },
+        theme: {
+          color: "#3B82F6"
+        }
+      };
+
+      const rzp = new Razorpay(options);
+      rzp.open();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to create payment order",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleLikeCompetition = async (competitionId) => {
+    try {
+      const api = apiRequest(token);
+      await api.post(`/competitions/${competitionId}/like`);
+      fetchCompetitions(); // Refresh to get updated likes count
+    } catch (error) {
+      console.error('Error liking competition:', error);
+    }
+  };
+
+  const addPrizeField = () => {
+    setNewCompetition({
+      ...newCompetition,
+      prizes: [...newCompetition.prizes, '']
+    });
+  };
+
+  const updatePrize = (index, value) => {
+    const newPrizes = [...newCompetition.prizes];
+    newPrizes[index] = value;
+    setNewCompetition({
+      ...newCompetition,
+      prizes: newPrizes
+    });
+  };
+
+  const removePrize = (index) => {
+    if (newCompetition.prizes.length > 1) {
+      const newPrizes = newCompetition.prizes.filter((_, i) => i !== index);
+      setNewCompetition({
+        ...newCompetition,
+        prizes: newPrizes
+      });
+    }
+  };
+
+  const categories = ['Academic', 'Technical', 'Creative', 'Sports', 'Cultural', 'Innovation', 'Other'];
+
+  const filteredCompetitions = selectedCategory 
+    ? competitions.filter(comp => comp.category === selectedCategory)
+    : competitions;
+
+  if (loading) {
+    return (
+      <div className="p-6">
+        <div className="flex items-center justify-center min-h-96">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-gray-900">Competitions</h1>
+        {user?.role === 'admin' && (
+          <Button
+            onClick={() => setShowCreateForm(true)}
+            className="bg-gradient-to-r from-blue-600 to-purple-600"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Create Competition
+          </Button>
+        )}
+      </div>
+
+      {/* Create Competition Form (Admin Only) */}
+      {showCreateForm && user?.role === 'admin' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Create New Competition</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleCreateCompetition} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Title</label>
+                  <Input
+                    value={newCompetition.title}
+                    onChange={(e) => setNewCompetition({...newCompetition, title: e.target.value})}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Category</label>
+                  <Select 
+                    value={newCompetition.category} 
+                    onValueChange={(value) => setNewCompetition({...newCompetition, category: value})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map(category => (
+                        <SelectItem key={category} value={category}>{category}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Description</label>
+                <Textarea
+                  value={newCompetition.description}
+                  onChange={(e) => setNewCompetition({...newCompetition, description: e.target.value})}
+                  rows={3}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Rules</label>
+                <Textarea
+                  value={newCompetition.rules}
+                  onChange={(e) => setNewCompetition({...newCompetition, rules: e.target.value})}
+                  rows={3}
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Entry Fee (₹)</label>
+                  <Input
+                    type="number"
+                    value={newCompetition.entry_fee}
+                    onChange={(e) => setNewCompetition({...newCompetition, entry_fee: e.target.value})}
+                    min="0"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Max Participants</label>
+                  <Input
+                    type="number"
+                    value={newCompetition.max_participants}
+                    onChange={(e) => setNewCompetition({...newCompetition, max_participants: e.target.value})}
+                    placeholder="Leave empty for unlimited"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Deadline</label>
+                  <Input
+                    type="datetime-local"
+                    value={newCompetition.deadline}
+                    onChange={(e) => setNewCompetition({...newCompetition, deadline: e.target.value})}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Prizes</label>
+                {newCompetition.prizes.map((prize, index) => (
+                  <div key={index} className="flex items-center space-x-2 mb-2">
+                    <Input
+                      value={prize}
+                      onChange={(e) => updatePrize(index, e.target.value)}
+                      placeholder={`Prize ${index + 1}`}
+                      className="flex-1"
+                    />
+                    {newCompetition.prizes.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => removePrize(index)}
+                      >
+                        <Trash className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={addPrizeField}
+                  className="mt-2"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Prize
+                </Button>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Image URL (Optional)</label>
+                <Input
+                  value={newCompetition.image_url}
+                  onChange={(e) => setNewCompetition({...newCompetition, image_url: e.target.value})}
+                  placeholder="https://example.com/image.jpg"
+                />
+              </div>
+
+              <div className="flex space-x-4">
+                <Button type="submit" className="bg-gradient-to-r from-blue-600 to-purple-600">
+                  Create Competition
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setShowCreateForm(false)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Tabs for different views */}
+      <Tabs defaultValue="all" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="all">All Competitions</TabsTrigger>
+          {user?.role === 'student' && (
+            <TabsTrigger value="my">My Competitions</TabsTrigger>
+          )}
+        </TabsList>
+
+        <TabsContent value="all" className="space-y-4">
+          {/* Category Filter */}
+          <div className="flex items-center space-x-4">
+            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="All Categories" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Categories</SelectItem>
+                {categories.map(category => (
+                  <SelectItem key={category} value={category}>{category}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Competitions Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredCompetitions.length === 0 ? (
+              <div className="col-span-full text-center py-12">
+                <Trophy className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-600">No competitions available</p>
+              </div>
+            ) : (
+              filteredCompetitions.map((competition) => (
+                <Card key={competition.id} className="hover:shadow-lg transition-shadow">
+                  <CardHeader className="pb-3">
+                    {competition.image_url && (
+                      <img 
+                        src={competition.image_url} 
+                        alt={competition.title}
+                        className="w-full h-48 object-cover rounded-lg mb-3"
+                      />
+                    )}
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <CardTitle className="text-lg">{competition.title}</CardTitle>
+                        <Badge variant="secondary" className="mt-1">
+                          {competition.category}
+                        </Badge>
+                      </div>
+                      {user?.role === 'student' && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleLikeCompetition(competition.id)}
+                        >
+                          <Heart className="h-4 w-4 mr-1" />
+                          {competition.likes_count || 0}
+                        </Button>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <p className="text-sm text-gray-600 line-clamp-2">
+                      {competition.description}
+                    </p>
+                    
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-500">Entry Fee:</span>
+                        <span className="font-semibold">
+                          {competition.entry_fee === 0 ? 'Free' : `₹${competition.entry_fee / 100}`}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-500">Participants:</span>
+                        <span>
+                          {competition.current_participants}
+                          {competition.max_participants && `/${competition.max_participants}`}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-500">Deadline:</span>
+                        <span>{new Date(competition.deadline).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+
+                    {Array.isArray(competition.prizes) && competition.prizes.length > 0 && (
+                      <div>
+                        <p className="text-sm font-medium text-gray-700 mb-1">Prizes:</p>
+                        <ul className="text-sm text-gray-600 space-y-1">
+                          {competition.prizes.slice(0, 2).map((prize, index) => (
+                            <li key={index} className="truncate">• {prize}</li>
+                          ))}
+                          {competition.prizes.length > 2 && (
+                            <li className="text-gray-500">+{competition.prizes.length - 2} more...</li>
+                          )}
+                        </ul>
+                      </div>
+                    )}
+
+                    {user?.role === 'student' && (
+                      <Button
+                        className="w-full"
+                        onClick={() => handleRegisterCompetition(competition)}
+                        disabled={new Date(competition.deadline) < new Date()}
+                      >
+                        {competition.entry_fee === 0 ? 'Register Free' : `Pay ₹${competition.entry_fee / 100} & Register`}
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+        </TabsContent>
+
+        {user?.role === 'student' && (
+          <TabsContent value="my" className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {myCompetitions.length === 0 ? (
+                <div className="col-span-full text-center py-12">
+                  <Trophy className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600">You haven't registered for any competitions yet</p>
+                </div>
+              ) : (
+                myCompetitions.map((competition) => (
+                  <Card key={competition.id} className="border-blue-200">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <CardTitle className="text-lg">{competition.title}</CardTitle>
+                          <Badge variant="secondary" className="mt-1">
+                            {competition.category}
+                          </Badge>
+                        </div>
+                        <Badge 
+                          variant={competition.registration_status === 'completed' ? 'default' : 'secondary'}
+                        >
+                          {competition.registration_status === 'completed' ? 'Registered' : 'Pending'}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Status:</span>
+                          <span className="capitalize">{competition.status}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Deadline:</span>
+                          <span>{new Date(competition.deadline).toLocaleDateString()}</span>
+                        </div>
+                        {competition.registration_date && (
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Registered:</span>
+                            <span>{new Date(competition.registration_date).toLocaleDateString()}</span>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          </TabsContent>
+        )}
+      </Tabs>
+    </div>
+  );
+}
+
 // Messages/Chat System Component
 function Messages() {
   const { user, token } = useAuth();
