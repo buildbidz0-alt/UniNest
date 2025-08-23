@@ -1524,7 +1524,7 @@ function BookMarketplace() {
 
         <TabsContent value="my-books" className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {myBooks.map((book) => (
+            {Array.isArray(myBooks) && myBooks.map((book) => (
               <Card key={book.id} className="hover:shadow-lg transition-shadow">
                 <CardHeader className="pb-3">
                   {book.image_url && (
