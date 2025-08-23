@@ -238,7 +238,8 @@ metadata:
   run_ui: false
 
 test_plan:
-  current_focus: []
+  current_focus:
+    - "Enhanced Competition Module with Razorpay Integration"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
