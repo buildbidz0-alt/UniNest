@@ -448,7 +448,7 @@ async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
             total_bookings = await db.bookings.count_documents({"library_id": library_id}) if library_id else 0
             time_slots_count = await db.time_slots.count_documents({"library_id": library_id}) if library_id else 0
             
-            # Check subscription
+            # Check subscription (including free trial)
             subscription = None
             if library_id:
                 subscription = await db.library_subscriptions.find_one({
