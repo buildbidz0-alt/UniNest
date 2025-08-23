@@ -217,11 +217,21 @@ function HomePage() {
               <span className="text-xl font-bold text-gray-900">UniNest</span>
             </div>
             
+            {/* Desktop Navigation */}
             <div className="hidden md:flex items-center space-x-8">
               <Link to="/" className="text-gray-700 hover:text-blue-600 font-medium">Home</Link>
               <Link to="/about" className="text-gray-700 hover:text-blue-600 font-medium">About</Link>
               <Link to="/login">
                 <Button className="bg-gradient-to-r from-blue-600 to-purple-600">
+                  Get Started
+                </Button>
+              </Link>
+            </div>
+            
+            {/* Mobile Navigation */}
+            <div className="md:hidden">
+              <Link to="/login">
+                <Button size="sm" className="bg-gradient-to-r from-blue-600 to-purple-600">
                   Get Started
                 </Button>
               </Link>
