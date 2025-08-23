@@ -65,6 +65,40 @@ html, body {
   }
 }
 
+/* Mobile Responsiveness Fixes */
+@media (max-width: 768px) {
+  /* Ensure buttons are visible and properly sized on mobile */
+  .mobile-button {
+    min-height: 44px !important;
+    min-width: 44px !important;
+    font-size: 16px !important;
+  }
+  
+  /* Fix mobile navigation */
+  .mobile-nav {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 40 !important;
+  }
+  
+  /* Ensure proper spacing on mobile */
+  .mobile-spacing {
+    padding: 16px !important;
+  }
+  
+  /* Fix mobile form elements */
+  .mobile-form input,
+  .mobile-form button {
+    font-size: 16px !important; /* Prevent zoom on iOS */
+  }
+}
+
+/* Ensure all content is scrollable */
+.scrollable-content {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
