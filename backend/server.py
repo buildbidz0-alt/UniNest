@@ -234,6 +234,7 @@ class LibrarySubscription(BaseModel):
     status: str = "active"  # "active", "expired", "cancelled"
     payment_id: Optional[str] = ""
     order_id: Optional[str] = ""
+    is_trial: bool = False  # True if this is a free trial period
 
 # Competition Models
 class CompetitionCreate(BaseModel):
