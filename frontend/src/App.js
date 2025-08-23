@@ -2896,6 +2896,323 @@ function Subscription() {
   );
 }
 
+// Messages/Chat System Component
+function Messages() {
+  const { user, token } = useAuth();
+  const [conversations, setConversations] = useState([]);
+  const [selectedConversation, setSelectedConversation] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [students, setStudents] = useState([]);
+  const [showNewChat, setShowNewChat] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (user?.role === 'student') {
+      fetchConversations();
+      fetchStudents();
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (selectedConversation) {
+      fetchMessages(selectedConversation.user.id);
+    }
+  }, [selectedConversation]);
+
+  const fetchConversations = async () => {
+    try {
+      const api = apiRequest(token);
+      const response = await api.get('/conversations');
+      setConversations(Array.isArray(response.data) ? response.data : []);
+    } catch (error) {
+      console.error('Error fetching conversations:', error);
+      setConversations([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchStudents = async () => {
+    try {
+      const api = apiRequest(token);
+      const response = await api.get('/students');
+      setStudents(Array.isArray(response.data) ? response.data : []);
+    } catch (error) {
+      console.error('Error fetching students:', error);
+      setStudents([]);
+    }
+  };
+
+  const fetchMessages = async (userId) => {
+    try {
+      const api = apiRequest(token);
+      const response = await api.get(`/messages/${userId}`);
+      setMessages(Array.isArray(response.data) ? response.data : []);
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+      setMessages([]);
+    }
+  };
+
+  const sendMessage = async (e) => {
+    e.preventDefault();
+    if (!newMessage.trim() || !selectedConversation) return;
+
+    try {
+      const api = apiRequest(token);
+      await api.post('/messages', {
+        receiver_id: selectedConversation.user.id,
+        content: newMessage.trim(),
+        message_type: 'text'
+      });
+
+      setNewMessage('');
+      fetchMessages(selectedConversation.user.id);
+      fetchConversations(); // Refresh conversations list
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to send message",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const startNewChat = (student) => {
+    setSelectedConversation({
+      user: student,
+      last_message: null
+    });
+    setMessages([]);
+    setShowNewChat(false);
+    setSearchQuery('');
+  };
+
+  const filteredStudents = students.filter(student =>
+    student.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    student.location.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  if (user?.role !== 'student') {
+    return (
+      <div className="p-6">
+        <Card>
+          <CardContent className="p-6">
+            <div className="text-center">
+              <MessageCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Chat Access Restricted</h3>
+              <p className="text-gray-600">Only students can access the messaging system.</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="p-6">
+        <div className="flex items-center justify-center min-h-96">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-full flex">
+      {/* Conversations Sidebar */}
+      <div className="w-80 border-r border-gray-200 bg-white flex flex-col">
+        {/* Header */}
+        <div className="p-4 border-b border-gray-200">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold">Messages</h2>
+            <Button
+              size="sm"
+              onClick={() => setShowNewChat(true)}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              New Chat
+            </Button>
+          </div>
+          
+          {showNewChat && (
+            <div className="space-y-3">
+              <Input
+                placeholder="Search students..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="text-sm"
+              />
+              <div className="max-h-48 overflow-y-auto space-y-1">
+                {filteredStudents.map((student) => (
+                  <div
+                    key={student.id}
+                    onClick={() => startNewChat(student)}
+                    className="flex items-center p-2 hover:bg-gray-50 rounded-lg cursor-pointer"
+                  >
+                    <Avatar className="h-8 w-8 mr-3">
+                      <AvatarFallback className="text-xs">
+                        {student.name.slice(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {student.name}
+                      </p>
+                      <p className="text-xs text-gray-500 truncate">
+                        {student.location}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { setShowNewChat(false); setSearchQuery(''); }}
+                className="w-full"
+              >
+                Cancel
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {/* Conversations List */}
+        <div className="flex-1 overflow-y-auto">
+          {conversations.length === 0 ? (
+            <div className="p-4 text-center text-gray-500">
+              <MessageCircle className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+              <p className="text-sm">No conversations yet</p>
+              <p className="text-xs">Start a new chat to connect with fellow students</p>
+            </div>
+          ) : (
+            conversations.map((conversation) => (
+              <div
+                key={conversation.user.id}
+                onClick={() => setSelectedConversation(conversation)}
+                className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 ${
+                  selectedConversation?.user.id === conversation.user.id ? 'bg-blue-50 border-blue-200' : ''
+                }`}
+              >
+                <div className="flex items-center">
+                  <Avatar className="h-10 w-10 mr-3">
+                    <AvatarFallback>
+                      {conversation.user.name.slice(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {conversation.user.name}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {conversation.last_message?.created_at && 
+                          new Date(conversation.last_message.created_at).toLocaleDateString()
+                        }
+                      </p>
+                    </div>
+                    <p className="text-sm text-gray-600 truncate">
+                      {conversation.last_message?.content || 'Start a conversation...'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Chat Area */}
+      <div className="flex-1 flex flex-col">
+        {selectedConversation ? (
+          <>
+            {/* Chat Header */}
+            <div className="p-4 border-b border-gray-200 bg-white">
+              <div className="flex items-center">
+                <Avatar className="h-8 w-8 mr-3">
+                  <AvatarFallback>
+                    {selectedConversation.user.name.slice(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <h3 className="font-medium text-gray-900">{selectedConversation.user.name}</h3>
+                  <p className="text-sm text-gray-500">{selectedConversation.user.location}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Messages Area */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {messages.length === 0 ? (
+                <div className="text-center text-gray-500 py-8">
+                  <MessageCircle className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                  <p>No messages yet. Say hello!</p>
+                </div>
+              ) : (
+                messages.map((message) => (
+                  <div
+                    key={message.id}
+                    className={`flex ${message.sender_id === user.id ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div
+                      className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                        message.sender_id === user.id
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-200 text-gray-900'
+                      }`}
+                    >
+                      <p className="text-sm">{message.content}</p>
+                      <p
+                        className={`text-xs mt-1 ${
+                          message.sender_id === user.id ? 'text-blue-200' : 'text-gray-500'
+                        }`}
+                      >
+                        {new Date(message.created_at).toLocaleTimeString([], { 
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Message Input */}
+            <div className="p-4 border-t border-gray-200 bg-white">
+              <form onSubmit={sendMessage} className="flex space-x-2">
+                <Input
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  placeholder="Type a message..."
+                  className="flex-1"
+                />
+                <Button type="submit" disabled={!newMessage.trim()}>
+                  <Send className="h-4 w-4" />
+                </Button>
+              </form>
+            </div>
+          </>
+        ) : (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center text-gray-500">
+              <MessageCircle className="h-16 w-16 mx-auto mb-4 text-gray-400" />
+              <h3 className="text-lg font-medium mb-2">Select a conversation</h3>
+              <p>Choose a conversation from the sidebar or start a new chat</p>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // Main App Layout with PROPER Sidebar Structure
 function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
