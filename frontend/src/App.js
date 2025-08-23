@@ -1856,7 +1856,7 @@ function LibraryBooking() {
                       <h4 className="font-medium mb-3">Available Time Slots</h4>
                       {timeSlots.length > 0 ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          {timeSlots.map((slot) => (
+                          {Array.isArray(timeSlots) && timeSlots.map((slot) => (
                             <Card key={slot.id} className="border hover:shadow-md transition-shadow">
                               <CardContent className="p-4">
                                 <div className="flex items-center justify-between">
