@@ -266,27 +266,47 @@ class CompetitionCreate(BaseModel):
     title: str
     category: str
     description: str
-    deadline: str
+    rules: str
+    deadline: datetime
     prizes: List[str]
+    entry_fee: int = 0  # in paise, 0 for free competitions
+    max_participants: Optional[int] = None
     image_url: Optional[str] = ""
-    registration_link: Optional[str] = ""
 
 class Competition(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     title: str
     category: str
     description: str
-    deadline: str
+    rules: str
+    deadline: datetime
     prizes: List[str]
-    image_url: str
-    registration_link: str
+    entry_fee: int = 0  # in paise
+    max_participants: Optional[int] = None
+    current_participants: int = 0
+    image_url: str = ""
+    status: str = "active"  # "active", "closed", "completed"
+    created_by: str  # admin_id
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    likes_count: int = 0
 
 class CompetitionRegistration(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     competition_id: str
     student_id: str
+    payment_id: Optional[str] = None  # Razorpay payment ID if entry fee paid
+    payment_status: str = "pending"  # "pending", "completed", "failed"
     registration_date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class CompetitionPayment(BaseModel):
+    competition_id: str
+    amount: int  # Should match competition entry_fee
+
+class CompetitionLike(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    competition_id: str
+    student_id: str
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 # Notes Models
 class NoteCreate(BaseModel):
