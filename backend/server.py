@@ -916,24 +916,84 @@ async def get_my_subscription(current_user: dict = Depends(get_current_user)):
 
 # --- COMPETITIONS ENDPOINTS ---
 
-@api_router.post("/competitions", response_model=Competition)
-async def create_competition(comp_data: CompetitionCreate):
-    # For now, allow anyone to create competitions (in real app, only admin)
-    competition = Competition(**comp_data.dict())
+@api_router.post("/admin/competitions", response_model=Competition)
+async def create_competition(comp_data: CompetitionCreate, admin_user: dict = Depends(get_admin_user)):
+    """Admin creates a new competition"""
+    competition = Competition(
+        **comp_data.dict(),
+        created_by=admin_user["id"],
+        status="active",
+        current_participants=0
+    )
+    
     await db.competitions.insert_one(competition.dict())
+    
+    # Log admin action
+    admin_action = AdminAction(
+        admin_id=admin_user["id"],
+        action_type="competition_create",
+        target_id=competition.id,
+        target_type="competition",
+        reason=f"Created competition: {competition.title}"
+    )
+    await db.admin_actions.insert_one(admin_action.dict())
+    
     return competition
 
 @api_router.get("/competitions", response_model=List[Competition])
-async def get_competitions(category: Optional[str] = Query(None)):
-    query = {}
+async def get_competitions(
+    category: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    current_user: dict = Depends(get_current_user)
+):
+    """Get all active competitions"""
+    query = {"status": "active"}  # Only show active competitions to users
+    
     if category:
         query["category"] = {"$regex": category, "$options": "i"}
+    if status and current_user.get("role") == "admin":
+        query["status"] = status  # Admins can filter by any status
     
-    competitions = await db.competitions.find(query).to_list(100)
+    competitions = await db.competitions.find(query).sort("created_at", -1).to_list(100)
     return [Competition(**comp) for comp in competitions]
+
+@api_router.get("/competitions/{competition_id}")
+async def get_competition_details(competition_id: str, current_user: dict = Depends(get_current_user)):
+    """Get detailed competition information"""
+    competition = await db.competitions.find_one({"id": competition_id})
+    if not competition:
+        raise HTTPException(status_code=404, detail="Competition not found")
+    
+    # Get registration count
+    registration_count = await db.competition_registrations.count_documents({
+        "competition_id": competition_id,
+        "payment_status": "completed" if competition["entry_fee"] > 0 else {"$in": ["completed", "pending"]}
+    })
+    
+    # Update current participants
+    await db.competitions.update_one(
+        {"id": competition_id},
+        {"$set": {"current_participants": registration_count}}
+    )
+    competition["current_participants"] = registration_count
+    
+    # Check if current user is registered
+    user_registration = None
+    if current_user["role"] == "student":
+        user_registration = await db.competition_registrations.find_one({
+            "competition_id": competition_id,
+            "student_id": current_user["id"]
+        })
+    
+    return {
+        "competition": Competition(**competition),
+        "is_registered": bool(user_registration),
+        "registration_status": user_registration.get("payment_status") if user_registration else None
+    }
 
 @api_router.post("/competitions/{competition_id}/register")
 async def register_for_competition(competition_id: str, current_user: dict = Depends(get_current_user)):
+    """Register for a competition (free competitions only)"""
     if current_user["role"] != "student":
         raise HTTPException(status_code=403, detail="Only students can register for competitions")
     
@@ -941,6 +1001,12 @@ async def register_for_competition(competition_id: str, current_user: dict = Dep
     competition = await db.competitions.find_one({"id": competition_id})
     if not competition:
         raise HTTPException(status_code=404, detail="Competition not found")
+    
+    if competition["status"] != "active":
+        raise HTTPException(status_code=400, detail="Competition is not active")
+    
+    if competition["deadline"] < datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="Registration deadline has passed")
     
     # Check if already registered
     existing = await db.competition_registrations.find_one({
