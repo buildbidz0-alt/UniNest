@@ -998,6 +998,18 @@ async def add_comment(post_id: str, comment_data: CommentCreate, current_user: d
 
 @api_router.post("/messages")
 async def send_message(message_data: MessageCreate, current_user: dict = Depends(get_current_user)):
+    # Only students can send messages
+    if current_user["role"] != "student":
+        raise HTTPException(status_code=403, detail="Only students can send messages")
+    
+    # Verify receiver exists and is also a student
+    receiver = await db.users.find_one({"id": message_data.receiver_id})
+    if not receiver:
+        raise HTTPException(status_code=404, detail="Receiver not found")
+    
+    if receiver["role"] != "student":
+        raise HTTPException(status_code=403, detail="Can only send messages to students")
+    
     message = Message(
         sender_id=current_user["id"],
         **message_data.dict()
@@ -1005,10 +1017,10 @@ async def send_message(message_data: MessageCreate, current_user: dict = Depends
     
     await db.messages.insert_one(message.dict())
     
-    # Emit real-time message
-    await sio.emit('new_message', message.dict(), room=message_data.receiver_id)
+    # Emit real-time message (Socket.IO currently disabled, will re-enable later)
+    # await sio.emit('new_message', message.dict(), room=message_data.receiver_id)
     
-    return {"message": "Message sent successfully"}
+    return {"message": "Message sent successfully", "message_id": message.id}
 
 @api_router.get("/messages/{user_id}")
 async def get_conversation(user_id: str, current_user: dict = Depends(get_current_user)):
