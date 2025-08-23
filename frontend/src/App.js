@@ -2534,7 +2534,7 @@ function LibraryProfile() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {subscriptionPlans.map((plan) => (
+                {Array.isArray(subscriptionPlans) && subscriptionPlans.map((plan) => (
                   <Card key={plan.id} className="border-2 hover:border-blue-300 transition-colors">
                     <CardHeader>
                       <CardTitle className="flex items-center justify-between">
