@@ -1901,7 +1901,7 @@ function LibraryBooking() {
 
         <TabsContent value="my-bookings" className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {myBookings.map((booking) => (
+            {Array.isArray(myBookings) && myBookings.map((booking) => (
               <Card key={booking.id}>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
