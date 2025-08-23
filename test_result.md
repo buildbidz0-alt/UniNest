@@ -147,8 +147,108 @@ test_plan:
   test_all: false
   test_priority: "high_first"
 
+frontend:
+  - task: "Homepage Complete Rendering"
+    implemented: true
+    working: "NA"
+    file: "App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "testing"
+          comment: "Need to verify homepage shows all sections (hero, stats, features, CTA, footer) and is complete"
+
+  - task: "Login Functionality"
+    implemented: true
+    working: "NA"
+    file: "App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "testing"
+          comment: "Need to test login page works properly with no crashes"
+
+  - task: "Library User Registration"
+    implemented: true
+    working: "NA"
+    file: "App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "testing"
+          comment: "Need to create a new library user account and verify registration process"
+
+  - task: "Library Dashboard Access"
+    implemented: true
+    working: "NA"
+    file: "App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "testing"
+          comment: "Need to login as library user and verify dashboard loads without crashes"
+
+  - task: "Subscription Page Access"
+    implemented: true
+    working: "NA"
+    file: "App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "testing"
+          comment: "Need to navigate to /subscription page and verify it loads the new Subscription component without 'code error' crashes"
+
+  - task: "Library Info Page Access"
+    implemented: true
+    working: "NA"
+    file: "App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "testing"
+          comment: "Need to navigate to /library-profile page and verify it loads without crashes"
+
+  - task: "Error Handling"
+    implemented: true
+    working: "NA"
+    file: "App.js"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "testing"
+          comment: "Need to verify proper error messages instead of generic 'code error'"
+
+test_plan:
+  current_focus:
+    - "Homepage Complete Rendering"
+    - "Login Functionality"
+    - "Library User Registration"
+    - "Library Dashboard Access"
+    - "Subscription Page Access"
+    - "Library Info Page Access"
+    - "Error Handling"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
 agent_communication:
     - agent: "main"
       message: "Implemented Razorpay integration with correct credentials. Added 3-month free trial system - new library users automatically get 90-day trial. Updated subscription plans to include trial plan. Need to test payment flows and library registration with trial creation."
     - agent: "testing"
       message: "✅ BACKEND TESTING COMPLETED SUCCESSFULLY (92.9% success rate): All Razorpay integration and free trial features working perfectly. Fixed critical timezone issues in subscription handling. Comprehensive testing covered: 1) Library user registration with auto-trial creation, 2) Subscription plans endpoint with trial/basic/premium plans, 3) Payment order creation for ₹500 and ₹1500 plans, 4) Trial subscription verification (90-day period), 5) Dashboard showing subscription status, 6) Time slot creation with trial subscription, 7) Database verification of trial records. All edge cases tested and working. Ready for production use."
+    - agent: "testing"
+      message: "Starting critical frontend testing for Library user crashes. Testing focus: Homepage rendering, Login functionality, Library user registration, Dashboard access, Subscription page (/subscription), Library profile page (/library-profile), and Error handling. Recent fixes applied include dedicated Subscription component with proper error handling, fixed routing, disabled WebSocket connection, and added loading states."
