@@ -790,7 +790,8 @@ async def get_my_subscription(current_user: dict = Depends(get_current_user)):
     
     subscription = await db.library_subscriptions.find_one({
         "library_id": library["id"],
-        "status": "active"
+        "status": "active",
+        "end_date": {"$gt": datetime.now(timezone.utc)}
     })
     
     if not subscription:
@@ -799,9 +800,14 @@ async def get_my_subscription(current_user: dict = Depends(get_current_user)):
     # Get plan details
     plan = next((p for p in SUBSCRIPTION_PLANS if p.id == subscription["plan_id"]), None)
     
+    # Calculate days remaining
+    days_remaining = (subscription["end_date"] - datetime.now(timezone.utc)).days
+    
     return {
         "subscription": LibrarySubscription(**subscription),
-        "plan": plan.dict() if plan else None
+        "plan": plan.dict() if plan else None,
+        "days_remaining": max(0, days_remaining),
+        "is_trial": subscription.get("is_trial", False)
     }
 
 # --- COMPETITIONS ENDPOINTS ---
