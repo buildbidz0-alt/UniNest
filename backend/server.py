@@ -457,6 +457,19 @@ async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
                     "end_date": {"$gt": datetime.now(timezone.utc)}
                 })
             
+            # Convert subscription to serializable format
+            subscription_data = None
+            if subscription:
+                subscription_data = {
+                    "id": subscription.get("id"),
+                    "library_id": subscription.get("library_id"),
+                    "plan_id": subscription.get("plan_id"),
+                    "start_date": subscription.get("start_date"),
+                    "end_date": subscription.get("end_date"),
+                    "status": subscription.get("status"),
+                    "is_trial": subscription.get("is_trial", False)
+                }
+            
             return {
                 "role": "library",
                 "has_library": bool(my_library),
@@ -464,7 +477,7 @@ async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
                 "total_bookings": total_bookings,
                 "time_slots": time_slots_count,
                 "has_subscription": bool(subscription),
-                "subscription": subscription,
+                "subscription": subscription_data,
                 "recent_activity": []
             }
     except Exception as e:
