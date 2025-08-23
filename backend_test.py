@@ -13,6 +13,8 @@ class UniNestAPITester:
         self.tests_passed = 0
         self.student_user = None
         self.library_user = None
+        self.admin_token = None
+        self.admin_user = None
 
     def run_test(self, name, method, endpoint, expected_status, data=None, token=None):
         """Run a single API test"""
