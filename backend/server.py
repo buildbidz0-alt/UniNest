@@ -800,8 +800,12 @@ async def get_my_subscription(current_user: dict = Depends(get_current_user)):
     # Get plan details
     plan = next((p for p in SUBSCRIPTION_PLANS if p.id == subscription["plan_id"]), None)
     
-    # Calculate days remaining
-    days_remaining = (subscription["end_date"] - datetime.now(timezone.utc)).days
+    # Calculate days remaining - handle timezone-aware/naive datetime comparison
+    end_date = subscription["end_date"]
+    if end_date.tzinfo is None:
+        # If end_date is timezone-naive, make it timezone-aware (UTC)
+        end_date = end_date.replace(tzinfo=timezone.utc)
+    days_remaining = (end_date - datetime.now(timezone.utc)).days
     
     return {
         "subscription": LibrarySubscription(**subscription),
