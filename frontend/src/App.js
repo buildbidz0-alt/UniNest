@@ -2859,7 +2859,7 @@ function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex min-h-screen bg-gray-50">
       {/* Sidebar Container */}
       <div className="relative">
         <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
