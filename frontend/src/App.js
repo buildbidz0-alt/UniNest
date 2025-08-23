@@ -2807,8 +2807,17 @@ function Subscription() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {Array.isArray(subscriptionPlans) && subscriptionPlans.map((plan) => (
+          {(!Array.isArray(subscriptionPlans) || subscriptionPlans.length === 0) ? (
+            <div className="text-center py-8">
+              <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-600">No subscription plans available at the moment.</p>
+              <Button onClick={() => fetchSubscriptionPlans()} className="mt-4">
+                Retry Loading Plans
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {subscriptionPlans.map((plan) => (
               <Card key={plan.id} className={`relative ${plan.id === 'premium' ? 'border-blue-500 border-2' : ''}`}>
                 {plan.id === 'premium' && (
                   <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
