@@ -1784,7 +1784,7 @@ function LibraryBooking() {
             {/* Libraries List */}
             <div className="lg:col-span-1 space-y-4">
               <h3 className="font-semibold text-lg">Available Libraries</h3>
-              {libraries.map((library) => (
+              {Array.isArray(libraries) && libraries.map((library) => (
                 <Card key={library.id} 
                       className={`cursor-pointer hover:shadow-lg transition-shadow ${
                         selectedLibrary?.id === library.id ? 'ring-2 ring-blue-500' : ''
