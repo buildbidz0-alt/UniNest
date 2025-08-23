@@ -3239,7 +3239,7 @@ function AppLayout() {
             <Route path="/competitions" element={<div className="p-6"><h1>Competitions - Coming Soon</h1></div>} />
             <Route path="/notes" element={<div className="p-6"><h1>Notes Sharing - Coming Soon</h1></div>} />
             <Route path="/social" element={<div className="p-6"><h1>Social Feed - Coming Soon</h1></div>} />
-            <Route path="/messages" element={<div className="p-6"><h1>Messages - Coming Soon</h1></div>} />
+            <Route path="/messages" element={<Messages />} />
             <Route path="/bookings" element={<div className="p-6"><h1>Bookings Management - Coming Soon</h1></div>} />
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
           </Routes>
