@@ -85,6 +85,12 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         raise HTTPException(status_code=401, detail="User not found")
     return user
 
+async def get_admin_user(current_user: dict = Depends(get_current_user)):
+    """Ensure current user is an admin"""
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return current_user
+
 async def create_free_trial_subscription(library_id: str, user_id: str):
     """Create a 3-month free trial subscription for new library users"""
     start_date = datetime.now(timezone.utc)
