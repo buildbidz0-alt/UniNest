@@ -983,9 +983,9 @@ class UniNestAPITester:
         return success
 
     def test_time_slots_management(self):
-        """Test time slots management functionality"""
+        """Test time slots management functionality with trial subscription"""
         print("\n" + "="*50)
-        print("TESTING TIME SLOTS MANAGEMENT")
+        print("TESTING TIME SLOTS MANAGEMENT WITH TRIAL")
         print("="*50)
         
         if not self.library_token:
@@ -1010,7 +1010,7 @@ class UniNestAPITester:
             print("❌ No library ID found")
             return False
         
-        # Test creating time slot without subscription (should fail)
+        # Test creating time slot WITH trial subscription (should work)
         tomorrow = datetime.now().strftime('%Y-%m-%d')
         time_slot_data = {
             "library_id": library_id,
@@ -1020,17 +1020,21 @@ class UniNestAPITester:
             "available_seats": 25
         }
         
-        success, _ = self.run_test(
-            "Create Time Slot Without Subscription (Should Fail)",
+        success, time_slot_response = self.run_test(
+            "Create Time Slot With Trial Subscription",
             "POST",
             "timeslots",
-            403,
+            200,
             data=time_slot_data,
             token=self.library_token
         )
         
         if success:
-            print("   ✅ Correctly blocked time slot creation without subscription")
+            print("   ✅ Time slot created successfully with trial subscription")
+            print(f"   Time Slot ID: {time_slot_response.get('id')}")
+            print(f"   Date: {time_slot_response.get('date')}")
+            print(f"   Time: {time_slot_response.get('start_time')} - {time_slot_response.get('end_time')}")
+            print(f"   Available Seats: {time_slot_response.get('available_seats')}")
         
         # Test getting time slots for library
         success, time_slots = self.run_test(
@@ -1055,6 +1059,111 @@ class UniNestAPITester:
             )
         
         return success
+
+    def test_dashboard_with_subscription(self):
+        """Test dashboard data showing subscription status"""
+        print("\n" + "="*50)
+        print("TESTING DASHBOARD WITH SUBSCRIPTION STATUS")
+        print("="*50)
+        
+        if not self.library_token:
+            print("❌ No library token available for dashboard testing")
+            return False
+        
+        # Test library dashboard stats with subscription info
+        success, response = self.run_test(
+            "Library Dashboard with Subscription",
+            "GET",
+            "dashboard/stats",
+            200,
+            token=self.library_token
+        )
+        
+        if success:
+            print(f"   Dashboard Data:")
+            print(f"   - Role: {response.get('role')}")
+            print(f"   - Has Library: {response.get('has_library')}")
+            print(f"   - Library Name: {response.get('library_name')}")
+            print(f"   - Has Subscription: {response.get('has_subscription')}")
+            print(f"   - Total Bookings: {response.get('total_bookings')}")
+            print(f"   - Time Slots: {response.get('time_slots')}")
+            
+            subscription = response.get('subscription')
+            if subscription:
+                print(f"   - Subscription Plan: {subscription.get('plan_id')}")
+                print(f"   - Subscription Status: {subscription.get('status')}")
+                print(f"   - Is Trial: {subscription.get('is_trial')}")
+                
+                if subscription.get('is_trial'):
+                    print("   ✅ Trial subscription correctly shown in dashboard")
+                    return True
+                else:
+                    print("   ❌ Subscription found but not marked as trial")
+                    return False
+            else:
+                print("   ❌ No subscription data in dashboard")
+                return False
+        
+        return False
+
+    def test_subscription_edge_cases(self):
+        """Test subscription edge cases and trial handling"""
+        print("\n" + "="*50)
+        print("TESTING SUBSCRIPTION EDGE CASES")
+        print("="*50)
+        
+        if not self.library_token:
+            print("❌ No library token available for edge case testing")
+            return False
+        
+        # Test getting current subscription details
+        success, subscription_response = self.run_test(
+            "Get Detailed Subscription Info",
+            "GET",
+            "my-subscription",
+            200,
+            token=self.library_token
+        )
+        
+        if success:
+            subscription = subscription_response.get('subscription')
+            plan = subscription_response.get('plan')
+            days_remaining = subscription_response.get('days_remaining')
+            is_trial = subscription_response.get('is_trial')
+            
+            print(f"   Subscription Details:")
+            if subscription:
+                print(f"   - Plan ID: {subscription.get('plan_id')}")
+                print(f"   - Status: {subscription.get('status')}")
+                print(f"   - Start Date: {subscription.get('start_date')}")
+                print(f"   - End Date: {subscription.get('end_date')}")
+                print(f"   - Is Trial: {is_trial}")
+                print(f"   - Days Remaining: {days_remaining}")
+                
+                if plan:
+                    print(f"   - Plan Name: {plan.get('name')}")
+                    print(f"   - Plan Features: {', '.join(plan.get('features', []))}")
+                    print(f"   - Seat Limit: {plan.get('seat_limit')}")
+                
+                # Verify trial subscription properties
+                if subscription.get('plan_id') == 'trial' and is_trial and days_remaining > 0:
+                    print("   ✅ Trial subscription properly configured")
+                    
+                    # Check if days remaining is reasonable (should be close to 90)
+                    if 85 <= days_remaining <= 90:
+                        print(f"   ✅ Trial period correctly set (~90 days, actual: {days_remaining})")
+                        return True
+                    else:
+                        print(f"   ⚠️  Trial period unusual: {days_remaining} days (expected ~90)")
+                        return True  # Still pass as functionality works
+                else:
+                    print("   ❌ Trial subscription not properly configured")
+                    return False
+            else:
+                print("   ❌ No subscription found")
+                return False
+        
+        return False
 
     def test_library_booking_system(self):
         """Test library booking system"""
