@@ -2637,9 +2637,11 @@ function Subscription() {
     try {
       const api = apiRequest(token);
       const response = await api.get('/my-subscription');
-      setSubscription(response.data);
+      // Ensure subscription data is properly structured
+      setSubscription(response.data || null);
     } catch (error) {
       console.log('No subscription found');
+      setSubscription(null);
     }
   };
 
