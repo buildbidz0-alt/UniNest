@@ -670,6 +670,14 @@ async def get_my_bookings(current_user: dict = Depends(get_current_user)):
 # Predefined subscription plans
 SUBSCRIPTION_PLANS = [
     SubscriptionPlan(
+        id="trial", 
+        name="Free Trial", 
+        price=0,  # Free
+        seat_limit=10,
+        duration=90,  # 90 days
+        features=["Up to 10 seats", "Basic booking management", "Email support", "90 days free trial"]
+    ),
+    SubscriptionPlan(
         id="basic", 
         name="Basic Plan", 
         price=50000,  # ₹500
