@@ -562,6 +562,10 @@ async def create_library(library_data: LibraryCreate, current_user: dict = Depen
     
     library = Library(**library_data.dict(), owner_id=current_user["id"])
     await db.libraries.insert_one(library.dict())
+    
+    # Create 3-month free trial subscription for new library
+    await create_free_trial_subscription(library.id, current_user["id"])
+    
     return library
 
 @api_router.get("/libraries", response_model=List[Library])
