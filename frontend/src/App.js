@@ -2255,7 +2255,7 @@ function LibraryProfile() {
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-700">Facilities</label>
                   <div className="flex flex-wrap gap-2">
-                    {library.facilities?.length > 0 ? (
+                    {Array.isArray(library.facilities) && library.facilities.length > 0 ? (
                       library.facilities.map((facility, index) => (
                         <Badge key={index} variant="outline" className="text-xs">
                           {facility}
