@@ -32,8 +32,7 @@ html, body {
 /* Layout Fixes for Sidebar */
 .sidebar-layout {
   display: flex;
-  height: 100vh;
-  overflow: hidden;
+  min-height: 100vh;
 }
 
 .sidebar-content {
