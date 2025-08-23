@@ -1271,6 +1271,195 @@ async def update_competition_status(
     
     return {"message": f"Competition status updated to {new_status}"}
 
+@api_router.get("/admin/competitions/{competition_id}/analytics")
+async def get_competition_analytics(competition_id: str, admin_user: dict = Depends(get_admin_user)):
+    """Get detailed analytics for a specific competition"""
+    competition = await db.competitions.find_one({"id": competition_id})
+    if not competition:
+        raise HTTPException(status_code=404, detail="Competition not found")
+    
+    # Get registration statistics
+    total_registrations = await db.competition_registrations.count_documents({"competition_id": competition_id})
+    completed_registrations = await db.competition_registrations.count_documents({
+        "competition_id": competition_id,
+        "payment_status": "completed"
+    })
+    pending_registrations = await db.competition_registrations.count_documents({
+        "competition_id": competition_id,
+        "payment_status": "pending"
+    })
+    failed_registrations = await db.competition_registrations.count_documents({
+        "competition_id": competition_id,
+        "payment_status": "failed"
+    })
+    
+    # Get revenue if paid competition
+    total_revenue = 0
+    if competition["entry_fee"] > 0:
+        total_revenue = completed_registrations * competition["entry_fee"]
+    
+    # Get registration timeline (registrations by day)
+    pipeline = [
+        {"$match": {"competition_id": competition_id, "payment_status": "completed"}},
+        {"$group": {
+            "_id": {"$dateToString": {"format": "%Y-%m-%d", "date": "$registration_date"}},
+            "count": {"$sum": 1}
+        }},
+        {"$sort": {"_id": 1}}
+    ]
+    registration_timeline = await db.competition_registrations.aggregate(pipeline).to_list(100)
+    
+    # Get participant details
+    registrations = await db.competition_registrations.find({
+        "competition_id": competition_id,
+        "payment_status": "completed"
+    }).to_list(1000)
+    
+    participant_details = []
+    for reg in registrations:
+        student = await db.users.find_one({"id": reg["student_id"]})
+        if student:
+            participant_details.append({
+                "student_id": student["id"],
+                "name": student["name"],
+                "email": student["email"],
+                "location": student["location"],
+                "registration_date": reg["registration_date"],
+                "payment_id": reg.get("payment_id", "N/A")
+            })
+    
+    return {
+        "competition": Competition(**competition),
+        "statistics": {
+            "total_registrations": total_registrations,
+            "completed_registrations": completed_registrations,
+            "pending_registrations": pending_registrations,
+            "failed_registrations": failed_registrations,
+            "conversion_rate": (completed_registrations / total_registrations * 100) if total_registrations > 0 else 0,
+            "total_revenue": total_revenue,
+            "revenue_formatted": f"₹{total_revenue / 100}" if total_revenue > 0 else "₹0"
+        },
+        "registration_timeline": registration_timeline,
+        "participants": participant_details,
+        "likes_count": competition.get("likes_count", 0)
+    }
+
+@api_router.get("/admin/competitions/statistics")
+async def get_all_competitions_statistics(admin_user: dict = Depends(get_admin_user)):
+    """Get overall competition statistics for admin dashboard"""
+    
+    # Overall competition stats
+    total_competitions = await db.competitions.count_documents({})
+    active_competitions = await db.competitions.count_documents({"status": "active"})
+    completed_competitions = await db.competitions.count_documents({"status": "completed"})
+    
+    # Registration stats
+    total_registrations = await db.competition_registrations.count_documents({})
+    completed_registrations = await db.competition_registrations.count_documents({"payment_status": "completed"})
+    
+    # Revenue stats
+    revenue_pipeline = [
+        {"$match": {"payment_status": "completed"}},
+        {"$lookup": {
+            "from": "competitions",
+            "localField": "competition_id",
+            "foreignField": "id",
+            "as": "competition"
+        }},
+        {"$unwind": "$competition"},
+        {"$group": {
+            "_id": None,
+            "total_revenue": {"$sum": "$competition.entry_fee"}
+        }}
+    ]
+    revenue_result = await db.competition_registrations.aggregate(revenue_pipeline).to_list(1)
+    total_revenue = revenue_result[0]["total_revenue"] if revenue_result else 0
+    
+    # Top competitions by participants
+    top_competitions_pipeline = [
+        {"$match": {"payment_status": "completed"}},
+        {"$group": {
+            "_id": "$competition_id",
+            "participant_count": {"$sum": 1}
+        }},
+        {"$sort": {"participant_count": -1}},
+        {"$limit": 5}
+    ]
+    top_competitions_data = await db.competition_registrations.aggregate(top_competitions_pipeline).to_list(5)
+    
+    # Enrich with competition details
+    top_competitions = []
+    for comp_data in top_competitions_data:
+        competition = await db.competitions.find_one({"id": comp_data["_id"]})
+        if competition:
+            top_competitions.append({
+                "title": competition["title"],
+                "category": competition["category"],
+                "participant_count": comp_data["participant_count"],
+                "entry_fee": competition["entry_fee"],
+                "status": competition["status"]
+            })
+    
+    return {
+        "overview": {
+            "total_competitions": total_competitions,
+            "active_competitions": active_competitions,
+            "completed_competitions": completed_competitions,
+            "total_registrations": total_registrations,
+            "completed_registrations": completed_registrations,
+            "total_revenue": total_revenue,
+            "revenue_formatted": f"₹{total_revenue / 100}"
+        },
+        "top_competitions": top_competitions
+    }
+
+@api_router.post("/admin/competitions/{competition_id}/notify")
+async def send_competition_notification(
+    competition_id: str,
+    notification_data: dict,
+    admin_user: dict = Depends(get_admin_user)
+):
+    """Send notification to all competition participants"""
+    competition = await db.competitions.find_one({"id": competition_id})
+    if not competition:
+        raise HTTPException(status_code=404, detail="Competition not found")
+    
+    message = notification_data.get("message", "")
+    subject = notification_data.get("subject", f"Update for {competition['title']}")
+    
+    if not message:
+        raise HTTPException(status_code=400, detail="Message is required")
+    
+    # Get all registered participants
+    registrations = await db.competition_registrations.find({
+        "competition_id": competition_id,
+        "payment_status": "completed"
+    }).to_list(1000)
+    
+    participant_count = 0
+    for registration in registrations:
+        student = await db.users.find_one({"id": registration["student_id"]})
+        if student:
+            # Here you would integrate with an email service like SendGrid
+            # For now, we'll just log the notification
+            print(f"Notification to {student['email']}: {subject} - {message}")
+            participant_count += 1
+    
+    # Log admin action
+    admin_action = AdminAction(
+        admin_id=admin_user["id"],
+        action_type="competition_notification",
+        target_id=competition_id,
+        target_type="competition",
+        reason=f"Sent notification to {participant_count} participants"
+    )
+    await db.admin_actions.insert_one(admin_action.dict())
+    
+    return {
+        "message": f"Notification sent to {participant_count} participants",
+        "participants_notified": participant_count
+    }
+
 # --- NOTES SHARING ENDPOINTS ---
 
 @api_router.post("/notes", response_model=Note)
