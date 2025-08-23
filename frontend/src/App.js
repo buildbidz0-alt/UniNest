@@ -3640,6 +3640,7 @@ function AppLayout() {
             <Route path="/libraries" element={<LibraryBooking />} />
             <Route path="/library-profile" element={<LibraryProfile />} />
             <Route path="/subscription" element={<Subscription />} />
+            <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/competitions" element={<div className="p-6"><h1>Competitions - Coming Soon</h1></div>} />
             <Route path="/notes" element={<div className="p-6"><h1>Notes Sharing - Coming Soon</h1></div>} />
             <Route path="/social" element={<div className="p-6"><h1>Social Feed - Coming Soon</h1></div>} />
