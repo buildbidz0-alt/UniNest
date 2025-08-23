@@ -3268,6 +3268,39 @@ function AdminDashboard() {
           </Card>
         </TabsContent>
 
+        <TabsContent value="competitions" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Competition Management</CardTitle>
+              <CardDescription>
+                Manage all competitions on the platform
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <p className="text-sm text-gray-600">
+                    Total Competitions: {stats?.content?.competitions || 0}
+                  </p>
+                  <Button
+                    onClick={() => window.location.href = '/competitions'}
+                    className="bg-gradient-to-r from-blue-600 to-purple-600"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Competition
+                  </Button>
+                </div>
+                
+                <div className="text-center py-8 text-gray-500">
+                  <Trophy className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                  <p>Go to Competitions page to create and manage competitions</p>
+                  <p className="text-sm">Create competitions with entry fees, manage participants, and track payments</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="actions" className="space-y-6">
           <Card>
             <CardHeader>
