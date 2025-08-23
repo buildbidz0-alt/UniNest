@@ -101,3 +101,48 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+user_problem_statement: "Complete Razorpay payment integration with 3-month free trial for library users. Library users should be able to add their library details and get a 90-day free trial before needing to subscribe."
+
+backend:
+  - task: "Razorpay Payment Integration with Free Trial"
+    implemented: true
+    working: false  # Needs testing
+    file: "server.py"
+    stuck_count: 0 
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: false
+          agent: "main"
+          comment: "Updated Razorpay credentials, implemented 3-month free trial system, added trial subscription creation for new libraries"
+
+  - task: "Library Management with Auto Trial"
+    implemented: true
+    working: false  # Needs testing
+    file: "server.py"
+    stuck_count: 0
+    priority: "high" 
+    needs_retesting: true
+    status_history:
+        - working: false
+          agent: "main"
+          comment: "Updated create_library endpoint to automatically create 3-month free trial subscription. Added trial plan to subscription plans"
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 0
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "Razorpay Payment Integration with Free Trial"
+    - "Library Management with Auto Trial"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+    - agent: "main"
+      message: "Implemented Razorpay integration with correct credentials. Added 3-month free trial system - new library users automatically get 90-day trial. Updated subscription plans to include trial plan. Need to test payment flows and library registration with trial creation."
