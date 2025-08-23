@@ -85,6 +85,25 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         raise HTTPException(status_code=401, detail="User not found")
     return user
 
+async def create_free_trial_subscription(library_id: str, user_id: str):
+    """Create a 3-month free trial subscription for new library users"""
+    start_date = datetime.now(timezone.utc)
+    end_date = start_date + timedelta(days=90)  # 3 months = 90 days
+    
+    trial_subscription = LibrarySubscription(
+        library_id=library_id,
+        plan_id="trial",  # Special trial plan ID
+        start_date=start_date,
+        end_date=end_date,
+        status="active",
+        is_trial=True,
+        payment_id="trial_period",
+        order_id="trial_period"
+    )
+    
+    await db.library_subscriptions.insert_one(trial_subscription.dict())
+    return trial_subscription
+
 # --- MODELS ---
 
 # User Models
