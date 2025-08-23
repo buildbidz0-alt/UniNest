@@ -1070,6 +1070,43 @@ async def get_conversations(current_user: dict = Depends(get_current_user)):
     
     return result
 
+@api_router.get("/students")
+async def get_students(current_user: dict = Depends(get_current_user)):
+    """Get list of all students for chat user lookup"""
+    if current_user["role"] != "student":
+        raise HTTPException(status_code=403, detail="Only students can view other students")
+    
+    # Get all students except current user
+    students = await db.users.find({
+        "role": "student",
+        "id": {"$ne": current_user["id"]}
+    }).to_list(100)
+    
+    # Return only safe user info
+    return [
+        {
+            "id": student["id"],
+            "name": student["name"],
+            "location": student["location"],
+            "bio": student.get("bio", ""),
+            "profile_image": student.get("profile_image", "")
+        }
+        for student in students
+    ]
+
+@api_router.post("/messages/{message_id}/read")
+async def mark_message_read(message_id: str, current_user: dict = Depends(get_current_user)):
+    """Mark a message as read"""
+    result = await db.messages.update_one(
+        {"id": message_id, "receiver_id": current_user["id"]},
+        {"$set": {"is_read": True}}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Message not found")
+    
+    return {"message": "Message marked as read"}
+
 # --- BASIC ENDPOINTS ---
 
 @api_router.get("/")
