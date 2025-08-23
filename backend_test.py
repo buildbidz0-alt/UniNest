@@ -2314,6 +2314,8 @@ def main():
         ("Admin Action Logging", tester.test_admin_action_logging),
         ("Admin Security Validation", tester.test_admin_security_validation),
         ("Admin Comprehensive Workflow", tester.test_admin_comprehensive_workflow),
+        # Enhanced Competition Module Testing
+        ("Enhanced Competition Module", tester.test_enhanced_competition_module),
         # Existing functionality tests
         ("Chat System", tester.test_chat_system),
         ("Library Profile Management", tester.test_library_profile_management),
