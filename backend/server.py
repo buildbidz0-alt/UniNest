@@ -1154,6 +1154,185 @@ async def mark_message_read(message_id: str, current_user: dict = Depends(get_cu
     
     return {"message": "Message marked as read"}
 
+# --- ADMIN ENDPOINTS ---
+
+@api_router.get("/admin/users")
+async def get_all_users(admin_user: dict = Depends(get_admin_user)):
+    """Get all users for admin management"""
+    users = await db.users.find({}).to_list(1000)
+    
+    # Remove password from response
+    safe_users = []
+    for user in users:
+        safe_user = {k: v for k, v in user.items() if k != "password"}
+        safe_users.append(safe_user)
+    
+    return safe_users
+
+@api_router.get("/admin/stats")
+async def get_admin_stats(admin_user: dict = Depends(get_admin_user)):
+    """Get platform statistics for admin dashboard"""
+    try:
+        # Count users by role
+        total_users = await db.users.count_documents({})
+        total_students = await db.users.count_documents({"role": "student"})
+        total_libraries = await db.users.count_documents({"role": "library"})
+        active_users = await db.users.count_documents({"is_active": True})
+        
+        # Count content
+        total_books = await db.books.count_documents({})
+        total_competitions = await db.competitions.count_documents({})
+        total_messages = await db.messages.count_documents({})
+        total_bookings = await db.bookings.count_documents({})
+        
+        # Count subscriptions
+        active_subscriptions = await db.library_subscriptions.count_documents({
+            "status": "active",
+            "end_date": {"$gt": datetime.now(timezone.utc)}
+        })
+        trial_subscriptions = await db.library_subscriptions.count_documents({
+            "is_trial": True,
+            "status": "active"
+        })
+        
+        return {
+            "users": {
+                "total": total_users,
+                "students": total_students,
+                "libraries": total_libraries,
+                "active": active_users,
+                "inactive": total_users - active_users
+            },
+            "content": {
+                "books": total_books,
+                "competitions": total_competitions,
+                "messages": total_messages,
+                "bookings": total_bookings
+            },
+            "subscriptions": {
+                "active": active_subscriptions,
+                "trial": trial_subscriptions,
+                "paid": active_subscriptions - trial_subscriptions
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch admin stats: {str(e)}")
+
+@api_router.post("/admin/users/{user_id}/manage")
+async def manage_user(
+    user_id: str,
+    action_data: UserManagementAction,
+    admin_user: dict = Depends(get_admin_user)
+):
+    """Manage user - suspend, activate, or delete"""
+    target_user = await db.users.find_one({"id": user_id})
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Don't allow admin to modify other admins
+    if target_user["role"] == "admin":
+        raise HTTPException(status_code=403, detail="Cannot modify admin users")
+    
+    # Log admin action
+    admin_action = AdminAction(
+        admin_id=admin_user["id"],
+        action_type=f"user_{action_data.action}",
+        target_id=user_id,
+        target_type="user",
+        reason=action_data.reason or f"User {action_data.action}"
+    )
+    await db.admin_actions.insert_one(admin_action.dict())
+    
+    if action_data.action == "suspend":
+        await db.users.update_one(
+            {"id": user_id},
+            {"$set": {"is_active": False}}
+        )
+        return {"message": f"User {target_user['name']} suspended successfully"}
+    
+    elif action_data.action == "activate":
+        await db.users.update_one(
+            {"id": user_id},
+            {"$set": {"is_active": True}}
+        )
+        return {"message": f"User {target_user['name']} activated successfully"}
+    
+    elif action_data.action == "delete":
+        # Soft delete - mark as inactive and anonymize data
+        await db.users.update_one(
+            {"id": user_id},
+            {"$set": {
+                "is_active": False,
+                "name": "Deleted User",
+                "email": f"deleted_{user_id}@uninest.local",
+                "bio": "User account deleted"
+            }}
+        )
+        return {"message": f"User {target_user['name']} deleted successfully"}
+    
+    else:
+        raise HTTPException(status_code=400, detail="Invalid action")
+
+@api_router.get("/admin/content/books")
+async def get_all_books_admin(admin_user: dict = Depends(get_admin_user)):
+    """Get all books for content moderation"""
+    books = await db.books.find({}).to_list(1000)
+    
+    # Enrich with user information
+    enriched_books = []
+    for book in books:
+        user = await db.users.find_one({"id": book["seller_id"]})
+        book_data = Book(**book)
+        enriched_books.append({
+            "book": book_data,
+            "seller": {
+                "id": user["id"] if user else "unknown",
+                "name": user["name"] if user else "Unknown User",
+                "email": user["email"] if user else "unknown@example.com"
+            }
+        })
+    
+    return enriched_books
+
+@api_router.delete("/admin/content/books/{book_id}")
+async def delete_book_admin(book_id: str, admin_user: dict = Depends(get_admin_user)):
+    """Delete a book (admin action)"""
+    book = await db.books.find_one({"id": book_id})
+    if not book:
+        raise HTTPException(status_code=404, detail="Book not found")
+    
+    # Log admin action
+    admin_action = AdminAction(
+        admin_id=admin_user["id"],
+        action_type="content_delete",
+        target_id=book_id,
+        target_type="book",
+        reason="Admin moderation"
+    )
+    await db.admin_actions.insert_one(admin_action.dict())
+    
+    # Delete the book
+    await db.books.delete_one({"id": book_id})
+    
+    return {"message": "Book deleted successfully"}
+
+@api_router.get("/admin/actions")
+async def get_admin_actions(admin_user: dict = Depends(get_admin_user)):
+    """Get recent admin actions for audit trail"""
+    actions = await db.admin_actions.find({}).sort("created_at", -1).limit(100).to_list(100)
+    
+    # Enrich with admin and target information
+    enriched_actions = []
+    for action in actions:
+        admin = await db.users.find_one({"id": action["admin_id"]})
+        action_data = AdminAction(**action)
+        enriched_actions.append({
+            "action": action_data,
+            "admin_name": admin["name"] if admin else "Unknown Admin"
+        })
+    
+    return enriched_actions
+
 # --- BASIC ENDPOINTS ---
 
 @api_router.get("/")
