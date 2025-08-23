@@ -1809,7 +1809,7 @@ function LibraryBooking() {
                     <p className="text-sm text-gray-600 line-clamp-2">{library.description}</p>
                     {library.facilities && library.facilities.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-2">
-                        {library.facilities.map((facility, index) => (
+                        {Array.isArray(library.facilities) && library.facilities.map((facility, index) => (
                           <Badge key={index} variant="outline" className="text-xs">
                             {facility}
                           </Badge>
