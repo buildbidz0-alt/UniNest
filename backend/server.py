@@ -403,6 +403,14 @@ class PaymentVerification(BaseModel):
 
 @api_router.post("/auth/register", response_model=Dict[str, Any])
 async def register(user_data: UserCreate):
+    # Prevent public admin registration
+    if user_data.role == "admin":
+        raise HTTPException(status_code=403, detail="Admin registration not allowed through public endpoint")
+    
+    # Validate role
+    if user_data.role not in ["student", "library"]:
+        raise HTTPException(status_code=400, detail="Invalid role. Must be 'student' or 'library'")
+    
     # Validate phone number
     if not validate_indian_phone(user_data.phone):
         raise HTTPException(status_code=400, detail="Invalid phone number format. Please enter a valid 10-digit Indian mobile number.")
