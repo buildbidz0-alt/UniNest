@@ -340,6 +340,47 @@ class ChatRoom(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+# Admin Models
+class AdminAction(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    admin_id: str
+    action_type: str  # "user_delete", "user_suspend", "content_moderate", etc.
+    target_id: str  # ID of affected user/content
+    target_type: str  # "user", "book", "competition", etc.
+    reason: Optional[str] = ""
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class UserManagementAction(BaseModel):
+    action: str  # "suspend", "activate", "delete"
+    reason: Optional[str] = ""
+
+# Initialize Admin User
+async def initialize_admin():
+    """Create admin user if it doesn't exist"""
+    admin_email = "support@uninest.in"
+    admin_exists = await db.users.find_one({"email": admin_email})
+    
+    if not admin_exists:
+        admin_user = User(
+            name="UniNest Admin",
+            email=admin_email,
+            role="admin",
+            location="System",
+            bio="System Administrator",
+            phone="9999999999",
+            is_active=True
+        )
+        
+        # Hash the admin password
+        hashed_password = hash_password("5968474644j")
+        admin_data = admin_user.dict()
+        admin_data["password"] = hashed_password
+        
+        await db.users.insert_one(admin_data)
+        print(f"✅ Admin user created: {admin_email}")
+    else:
+        print(f"✅ Admin user already exists: {admin_email}")
+
 # Payment Models
 class PaymentOrder(BaseModel):
     amount: int  # in paise
