@@ -340,6 +340,29 @@ class PaymentVerification(BaseModel):
     razorpay_payment_id: str
     razorpay_signature: str
 
+# Chat Models
+class MessageCreate(BaseModel):
+    receiver_id: str
+    content: str
+    message_type: str = "text"  # "text", "image", "file"
+
+class Message(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    sender_id: str
+    receiver_id: str
+    content: str
+    message_type: str = "text"
+    is_read: bool = False
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class ChatRoom(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    participants: List[str]  # List of user IDs
+    last_message: Optional[str] = ""
+    last_message_time: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
 # --- AUTH ENDPOINTS ---
 
 @api_router.post("/auth/register", response_model=Dict[str, Any])
