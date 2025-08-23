@@ -111,7 +111,7 @@ class UserCreate(BaseModel):
     name: str
     email: EmailStr
     password: str
-    role: str  # "student" or "library"
+    role: str  # "student", "library", or "admin"
     location: str
     bio: Optional[str] = ""
     phone: str  # Made mandatory
