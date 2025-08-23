@@ -762,6 +762,149 @@ class UniNestAPITester:
         
         return library_id is not None
 
+    def test_free_trial_system(self):
+        """Test 3-month free trial system for library users"""
+        print("\n" + "="*50)
+        print("TESTING FREE TRIAL SYSTEM")
+        print("="*50)
+        
+        if not self.library_token:
+            print("❌ No library token available for free trial testing")
+            return False
+        
+        # Check if library has subscription after creating profile
+        success, subscription_response = self.run_test(
+            "Check Free Trial Subscription",
+            "GET",
+            "my-subscription",
+            200,
+            token=self.library_token
+        )
+        
+        if success:
+            subscription = subscription_response.get('subscription')
+            if subscription:
+                print(f"   ✅ Free trial subscription found!")
+                print(f"   Plan ID: {subscription.get('plan_id')}")
+                print(f"   Is Trial: {subscription_response.get('is_trial')}")
+                print(f"   Days Remaining: {subscription_response.get('days_remaining')}")
+                
+                # Verify it's a trial subscription
+                if subscription.get('plan_id') == 'trial' and subscription_response.get('is_trial'):
+                    print("   ✅ Correctly identified as trial subscription")
+                    return True
+                else:
+                    print("   ❌ Subscription exists but not properly marked as trial")
+                    return False
+            else:
+                print("   ❌ No subscription found - free trial not created")
+                return False
+        
+        return False
+
+    def test_razorpay_integration(self):
+        """Test Razorpay payment integration"""
+        print("\n" + "="*50)
+        print("TESTING RAZORPAY INTEGRATION")
+        print("="*50)
+        
+        if not self.library_token:
+            print("❌ No library token available for Razorpay testing")
+            return False
+        
+        # Test getting subscription plans (should include trial, basic, premium)
+        success, plans = self.run_test(
+            "Get Subscription Plans with Trial",
+            "GET",
+            "subscription-plans",
+            200
+        )
+        
+        if not success:
+            return False
+        
+        print(f"   Found {len(plans)} subscription plans:")
+        trial_plan = None
+        basic_plan = None
+        premium_plan = None
+        
+        for plan in plans:
+            plan_name = plan.get('name')
+            plan_id = plan.get('id')
+            price = plan.get('price', 0)
+            print(f"   - {plan_name} ({plan_id}): ₹{price/100}")
+            
+            if plan_id == 'trial':
+                trial_plan = plan
+            elif plan_id == 'basic':
+                basic_plan = plan
+            elif plan_id == 'premium':
+                premium_plan = plan
+        
+        # Verify all required plans exist
+        if not trial_plan:
+            print("   ❌ Trial plan not found")
+            return False
+        if not basic_plan:
+            print("   ❌ Basic plan not found")
+            return False
+        if not premium_plan:
+            print("   ❌ Premium plan not found")
+            return False
+        
+        print("   ✅ All required plans (trial, basic, premium) found")
+        
+        # Test creating payment order for Basic plan (₹500)
+        if basic_plan['price'] != 50000:  # ₹500 in paise
+            print(f"   ❌ Basic plan price incorrect: expected ₹500, got ₹{basic_plan['price']/100}")
+            return False
+        
+        order_data = {
+            "amount": basic_plan['price'],
+            "plan_id": basic_plan['id']
+        }
+        
+        success, order_response = self.run_test(
+            "Create Payment Order - Basic Plan (₹500)",
+            "POST",
+            "create-payment-order",
+            200,
+            data=order_data,
+            token=self.library_token
+        )
+        
+        if success:
+            print(f"   ✅ Payment order created successfully")
+            print(f"   Order ID: {order_response.get('order_id')}")
+            print(f"   Amount: ₹{order_response.get('amount', 0)/100}")
+            print(f"   Currency: {order_response.get('currency')}")
+            print(f"   Razorpay Key: {order_response.get('key')[:10]}...")
+        
+        # Test creating payment order for Premium plan (₹1500)
+        if premium_plan['price'] != 150000:  # ₹1500 in paise
+            print(f"   ❌ Premium plan price incorrect: expected ₹1500, got ₹{premium_plan['price']/100}")
+            return False
+        
+        premium_order_data = {
+            "amount": premium_plan['price'],
+            "plan_id": premium_plan['id']
+        }
+        
+        success, premium_order_response = self.run_test(
+            "Create Payment Order - Premium Plan (₹1500)",
+            "POST",
+            "create-payment-order",
+            200,
+            data=premium_order_data,
+            token=self.library_token
+        )
+        
+        if success:
+            print(f"   ✅ Premium payment order created successfully")
+            print(f"   Amount: ₹{premium_order_response.get('amount', 0)/100}")
+        
+        return success
+
     def test_subscription_system(self):
         """Test comprehensive subscription system"""
         print("\n" + "="*50)
