@@ -2575,6 +2575,285 @@ function LibraryProfile() {
   );
 }
 
+// Subscription Management Component
+function Subscription() {
+  const { user, token } = useAuth();
+  const [Razorpay] = useRazorpay();
+  const [library, setLibrary] = useState(null);
+  const [subscription, setSubscription] = useState(null);
+  const [subscriptionPlans, setSubscriptionPlans] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (user?.role === 'library') {
+      fetchData();
+    }
+  }, [user]);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      await Promise.all([
+        fetchLibraryProfile(),
+        fetchSubscription(),
+        fetchSubscriptionPlans()
+      ]);
+    } catch (error) {
+      console.error('Error fetching subscription data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchLibraryProfile = async () => {
+    try {
+      const api = apiRequest(token);
+      const response = await api.get('/libraries/my');
+      setLibrary(response.data);
+    } catch (error) {
+      console.log('Library profile not found');
+    }
+  };
+
+  const fetchSubscription = async () => {
+    try {
+      const api = apiRequest(token);
+      const response = await api.get('/my-subscription');
+      setSubscription(response.data);
+    } catch (error) {
+      console.log('No subscription found');
+    }
+  };
+
+  const fetchSubscriptionPlans = async () => {
+    try {
+      const api = apiRequest(token);
+      const response = await api.get('/subscription-plans');
+      setSubscriptionPlans(response.data);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch subscription plans",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleSubscribe = async (plan) => {
+    if (!library) {
+      toast({
+        title: "Library Profile Required",
+        description: "Please create your library profile first",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      const api = apiRequest(token);
+      const response = await api.post('/create-payment-order', {
+        plan_id: plan.id,
+        amount: plan.price
+      });
+
+      const options = {
+        key: response.data.key,
+        amount: response.data.amount,
+        currency: response.data.currency,
+        name: "UniNest Subscription",
+        description: `${plan.name} - ${plan.seat_limit} seats`,
+        order_id: response.data.order_id,
+        handler: async (paymentResponse) => {
+          try {
+            await api.post('/verify-payment', {
+              razorpay_order_id: paymentResponse.razorpay_order_id,
+              razorpay_payment_id: paymentResponse.razorpay_payment_id,
+              razorpay_signature: paymentResponse.razorpay_signature
+            });
+            
+            toast({ title: "Subscription activated successfully!" });
+            fetchSubscription();
+          } catch (error) {
+            toast({
+              title: "Payment Verification Failed",
+              description: error.response?.data?.detail || "Please contact support",
+              variant: "destructive"
+            });
+          }
+        },
+        prefill: {
+          name: user.name,
+          email: user.email,
+          contact: user.phone
+        },
+        theme: {
+          color: "#3B82F6"
+        }
+      };
+
+      const rzp = new Razorpay(options);
+      rzp.open();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error.response?.data?.detail || "Failed to initiate payment",
+        variant: "destructive"
+      });
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="p-6">
+        <div className="flex items-center justify-center min-h-96">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (user?.role !== 'library') {
+    return (
+      <div className="p-6">
+        <Card>
+          <CardContent className="p-6">
+            <div className="text-center">
+              <AlertCircle className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Access Denied</h3>
+              <p className="text-gray-600">Only library users can access subscription management.</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-gray-900">Subscription Management</h1>
+      </div>
+
+      {/* Current Subscription Status */}
+      {subscription && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-500" />
+              Current Subscription
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <p className="text-sm text-gray-600">Plan</p>
+                <p className="font-semibold">
+                  {subscription.plan?.name || 'Unknown Plan'}
+                  {subscription.is_trial && (
+                    <Badge variant="secondary" className="ml-2">Free Trial</Badge>
+                  )}
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Seat Limit</p>
+                <p className="font-semibold">{subscription.plan?.seat_limit || 'N/A'} seats</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Days Remaining</p>
+                <p className="font-semibold text-blue-600">{subscription.days_remaining || 0} days</p>
+              </div>
+            </div>
+            {subscription.is_trial && (
+              <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  🎉 You're currently on a <strong>3-month free trial</strong>! 
+                  Enjoy all features at no cost. Upgrade to a paid plan anytime to continue after your trial ends.
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Available Plans */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Available Plans</CardTitle>
+          <CardDescription>
+            Choose the perfect plan for your library's needs
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {subscriptionPlans.map((plan) => (
+              <Card key={plan.id} className={`relative ${plan.id === 'premium' ? 'border-blue-500 border-2' : ''}`}>
+                {plan.id === 'premium' && (
+                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                    <Badge className="bg-blue-500">Most Popular</Badge>
+                  </div>
+                )}
+                <CardHeader className="text-center">
+                  <CardTitle className="text-lg">{plan.name}</CardTitle>
+                  <div className="text-3xl font-bold text-blue-600">
+                    {plan.price === 0 ? 'Free' : `₹${plan.price / 100}`}
+                    {plan.price > 0 && <span className="text-sm text-gray-600">/month</span>}
+                  </div>
+                  <p className="text-gray-600">Up to {plan.seat_limit} seats</p>
+                  {plan.duration && plan.duration !== 30 && (
+                    <p className="text-sm text-blue-600">{plan.duration} days</p>
+                  )}
+                </CardHeader>
+                <CardContent>
+                  <ul className="space-y-2 mb-6">
+                    {plan.features.map((feature, index) => (
+                      <li key={index} className="flex items-center gap-2 text-sm">
+                        <Check className="h-4 w-4 text-green-500" />
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
+                  {plan.id !== 'trial' && (
+                    <Button 
+                      className="w-full"
+                      onClick={() => handleSubscribe(plan)}
+                      disabled={subscription?.plan?.id === plan.id}
+                    >
+                      {subscription?.plan?.id === plan.id ? 'Current Plan' : 'Subscribe Now'}
+                    </Button>
+                  )}
+                  {plan.id === 'trial' && (
+                    <Button variant="outline" className="w-full" disabled>
+                      Automatic on Library Creation
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {!library && (
+        <Card>
+          <CardContent className="p-6">
+            <div className="text-center">
+              <Building2 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Library Profile Required</h3>
+              <p className="text-gray-600 mb-4">
+                You need to create your library profile before you can subscribe to a plan.
+              </p>
+              <Button onClick={() => window.location.href = '/library-profile'}>
+                Create Library Profile
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 // Main App Layout with PROPER Sidebar Structure
 function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
