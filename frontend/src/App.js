@@ -3125,6 +3125,7 @@ function AdminDashboard() {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="users">User Management</TabsTrigger>
           <TabsTrigger value="content">Content Moderation</TabsTrigger>
+          <TabsTrigger value="competitions">Competition Management</TabsTrigger>
           <TabsTrigger value="actions">Admin Actions</TabsTrigger>
         </TabsList>
 
