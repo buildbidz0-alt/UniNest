@@ -1440,6 +1440,548 @@ class UniNestAPITester:
         
         return success
 
+    def test_admin_login(self):
+        """Test admin user login with predefined credentials"""
+        print("\n" + "="*50)
+        print("TESTING ADMIN LOGIN")
+        print("="*50)
+        
+        # Test admin login with predefined credentials
+        admin_login_data = {
+            "identifier": "support@uninest.in",
+            "password": "5968474644j"
+        }
+        
+        success, response = self.run_test(
+            "Admin Login",
+            "POST",
+            "auth/login",
+            200,
+            data=admin_login_data
+        )
+        
+        if success and 'token' in response:
+            self.admin_token = response['token']
+            self.admin_user = response['user']
+            print(f"   Admin Token: {self.admin_token[:20]}...")
+            print(f"   Admin User: {self.admin_user['name']} ({self.admin_user['role']})")
+            
+            # Verify admin role
+            if self.admin_user['role'] == 'admin':
+                print("   ✅ Admin role correctly assigned")
+                return True
+            else:
+                print(f"   ❌ Expected admin role, got {self.admin_user['role']}")
+                return False
+        else:
+            print("   ❌ Admin login failed")
+            return False
+
+    def test_admin_registration_blocked(self):
+        """Test that public admin registration is blocked"""
+        print("\n" + "="*50)
+        print("TESTING ADMIN REGISTRATION BLOCKING")
+        print("="*50)
+        
+        # Try to register as admin (should fail)
+        admin_data = {
+            "name": "Fake Admin",
+            "email": "fake@admin.com",
+            "password": "test123",
+            "role": "admin",
+            "location": "System",
+            "bio": "Fake admin",
+            "phone": "9999999998"
+        }
+        
+        success, response = self.run_test(
+            "Public Admin Registration (Should Fail)",
+            "POST",
+            "auth/register",
+            403,
+            data=admin_data
+        )
+        
+        if success:
+            print("   ✅ Admin registration correctly blocked")
+            return True
+        else:
+            print("   ❌ Admin registration was not blocked")
+            return False
+
+    def test_admin_authentication(self):
+        """Test admin authentication and authorization"""
+        print("\n" + "="*50)
+        print("TESTING ADMIN AUTHENTICATION & AUTHORIZATION")
+        print("="*50)
+        
+        if not self.admin_token:
+            print("❌ No admin token available for authentication testing")
+            return False
+        
+        # Test admin profile access
+        success, response = self.run_test(
+            "Admin Profile Access",
+            "GET",
+            "auth/profile",
+            200,
+            token=self.admin_token
+        )
+        
+        if success:
+            print(f"   Admin Profile: {response.get('name')} ({response.get('role')})")
+            if response.get('role') == 'admin':
+                print("   ✅ Admin profile correctly retrieved")
+            else:
+                print("   ❌ Admin profile role mismatch")
+                return False
+        
+        # Test student trying to access admin endpoint (should fail)
+        if self.student_token:
+            success, _ = self.run_test(
+                "Student Access Admin Endpoint (Should Fail)",
+                "GET",
+                "admin/stats",
+                403,
+                token=self.student_token
+            )
+            if success:
+                print("   ✅ Student correctly blocked from admin endpoints")
+        
+        # Test library trying to access admin endpoint (should fail)
+        if self.library_token:
+            success, _ = self.run_test(
+                "Library Access Admin Endpoint (Should Fail)",
+                "GET",
+                "admin/stats",
+                403,
+                token=self.library_token
+            )
+            if success:
+                print("   ✅ Library user correctly blocked from admin endpoints")
+        
+        # Test unauthenticated access to admin endpoint (should fail)
+        success, _ = self.run_test(
+            "Unauthenticated Admin Access (Should Fail)",
+            "GET",
+            "admin/stats",
+            401
+        )
+        
+        if success:
+            print("   ✅ Unauthenticated access correctly blocked")
+        
+        return success
+
+    def test_admin_dashboard_stats(self):
+        """Test admin dashboard statistics API"""
+        print("\n" + "="*50)
+        print("TESTING ADMIN DASHBOARD STATS")
+        print("="*50)
+        
+        if not self.admin_token:
+            print("❌ No admin token available for dashboard testing")
+            return False
+        
+        success, response = self.run_test(
+            "Admin Dashboard Stats",
+            "GET",
+            "admin/stats",
+            200,
+            token=self.admin_token
+        )
+        
+        if success:
+            print("   📊 Platform Statistics:")
+            
+            # Check users stats
+            users = response.get('users', {})
+            print(f"   Users:")
+            print(f"   - Total: {users.get('total', 0)}")
+            print(f"   - Students: {users.get('students', 0)}")
+            print(f"   - Libraries: {users.get('libraries', 0)}")
+            print(f"   - Active: {users.get('active', 0)}")
+            print(f"   - Inactive: {users.get('inactive', 0)}")
+            
+            # Check content stats
+            content = response.get('content', {})
+            print(f"   Content:")
+            print(f"   - Books: {content.get('books', 0)}")
+            print(f"   - Competitions: {content.get('competitions', 0)}")
+            print(f"   - Messages: {content.get('messages', 0)}")
+            print(f"   - Bookings: {content.get('bookings', 0)}")
+            
+            # Check subscriptions stats
+            subscriptions = response.get('subscriptions', {})
+            print(f"   Subscriptions:")
+            print(f"   - Active: {subscriptions.get('active', 0)}")
+            print(f"   - Trial: {subscriptions.get('trial', 0)}")
+            print(f"   - Paid: {subscriptions.get('paid', 0)}")
+            
+            # Verify expected structure
+            expected_keys = ['users', 'content', 'subscriptions']
+            for key in expected_keys:
+                if key not in response:
+                    print(f"   ❌ Missing key in stats: {key}")
+                    return False
+            
+            print("   ✅ Admin dashboard stats working correctly")
+            return True
+        
+        return False
+
+    def test_admin_user_management(self):
+        """Test admin user management APIs"""
+        print("\n" + "="*50)
+        print("TESTING ADMIN USER MANAGEMENT")
+        print("="*50)
+        
+        if not self.admin_token:
+            print("❌ No admin token available for user management testing")
+            return False
+        
+        # Test getting all users
+        success, users = self.run_test(
+            "Get All Users (Admin)",
+            "GET",
+            "admin/users",
+            200,
+            token=self.admin_token
+        )
+        
+        if not success:
+            return False
+        
+        print(f"   Found {len(users)} users in system")
+        
+        # Find a student user to test management actions
+        student_user = None
+        for user in users:
+            if user.get('role') == 'student' and user.get('id') != self.admin_user.get('id'):
+                student_user = user
+                break
+        
+        if not student_user:
+            print("   ⚠️  No student user found for management testing")
+            return True  # Not a failure, just no test data
+        
+        print(f"   Testing management actions on student: {student_user.get('name')}")
+        
+        # Test user suspension
+        suspend_data = {
+            "action": "suspend",
+            "reason": "Testing admin suspension functionality"
+        }
+        
+        success, response = self.run_test(
+            "Suspend User",
+            "POST",
+            f"admin/users/{student_user['id']}/manage",
+            200,
+            data=suspend_data,
+            token=self.admin_token
+        )
+        
+        if success:
+            print(f"   ✅ User suspension successful: {response.get('message')}")
+        
+        # Test user activation
+        activate_data = {
+            "action": "activate",
+            "reason": "Testing admin activation functionality"
+        }
+        
+        success, response = self.run_test(
+            "Activate User",
+            "POST",
+            f"admin/users/{student_user['id']}/manage",
+            200,
+            data=activate_data,
+            token=self.admin_token
+        )
+        
+        if success:
+            print(f"   ✅ User activation successful: {response.get('message')}")
+        
+        # Test trying to manage admin user (should fail)
+        admin_user_in_list = None
+        for user in users:
+            if user.get('role') == 'admin' and user.get('id') != self.admin_user.get('id'):
+                admin_user_in_list = user
+                break
+        
+        if admin_user_in_list:
+            success, _ = self.run_test(
+                "Manage Admin User (Should Fail)",
+                "POST",
+                f"admin/users/{admin_user_in_list['id']}/manage",
+                403,
+                data=suspend_data,
+                token=self.admin_token
+            )
+            if success:
+                print("   ✅ Admin user management correctly blocked")
+        
+        # Test invalid action
+        invalid_data = {
+            "action": "invalid_action",
+            "reason": "Testing invalid action"
+        }
+        
+        success, _ = self.run_test(
+            "Invalid User Action (Should Fail)",
+            "POST",
+            f"admin/users/{student_user['id']}/manage",
+            400,
+            data=invalid_data,
+            token=self.admin_token
+        )
+        
+        if success:
+            print("   ✅ Invalid action correctly rejected")
+        
+        return success
+
+    def test_admin_content_moderation(self):
+        """Test admin content moderation APIs"""
+        print("\n" + "="*50)
+        print("TESTING ADMIN CONTENT MODERATION")
+        print("="*50)
+        
+        if not self.admin_token:
+            print("❌ No admin token available for content moderation testing")
+            return False
+        
+        # Test getting all books for moderation
+        success, books_data = self.run_test(
+            "Get All Books for Moderation",
+            "GET",
+            "admin/content/books",
+            200,
+            token=self.admin_token
+        )
+        
+        if not success:
+            return False
+        
+        print(f"   Found {len(books_data)} books for moderation")
+        
+        # Display book information
+        for i, book_info in enumerate(books_data[:3]):  # Show first 3 books
+            book = book_info.get('book', {})
+            seller = book_info.get('seller', {})
+            print(f"   Book {i+1}: {book.get('title')} by {book.get('author')}")
+            print(f"   - Seller: {seller.get('name')} ({seller.get('email')})")
+            print(f"   - Price: ₹{book.get('price', 0)}")
+            print(f"   - Condition: {book.get('condition')}")
+        
+        # Test deleting a book (if any exist)
+        if books_data:
+            book_to_delete = books_data[0].get('book', {})
+            book_id = book_to_delete.get('id')
+            
+            if book_id:
+                success, response = self.run_test(
+                    "Delete Book (Admin Moderation)",
+                    "DELETE",
+                    f"admin/content/books/{book_id}",
+                    200,
+                    token=self.admin_token
+                )
+                
+                if success:
+                    print(f"   ✅ Book deletion successful: {response.get('message')}")
+                    
+                    # Verify book is actually deleted
+                    success, _ = self.run_test(
+                        "Verify Book Deleted",
+                        "GET",
+                        f"books/{book_id}",
+                        404
+                    )
+                    
+                    if success:
+                        print("   ✅ Book successfully removed from system")
+        
+        # Test deleting non-existent book
+        success, _ = self.run_test(
+            "Delete Non-existent Book (Should Fail)",
+            "DELETE",
+            "admin/content/books/nonexistent-book-id",
+            404,
+            token=self.admin_token
+        )
+        
+        if success:
+            print("   ✅ Non-existent book deletion correctly handled")
+        
+        return success
+
+    def test_admin_action_logging(self):
+        """Test admin action logging and audit trail"""
+        print("\n" + "="*50)
+        print("TESTING ADMIN ACTION LOGGING")
+        print("="*50)
+        
+        if not self.admin_token:
+            print("❌ No admin token available for action logging testing")
+            return False
+        
+        # Test getting admin actions
+        success, actions_data = self.run_test(
+            "Get Admin Actions Log",
+            "GET",
+            "admin/actions",
+            200,
+            token=self.admin_token
+        )
+        
+        if not success:
+            return False
+        
+        print(f"   Found {len(actions_data)} admin actions in log")
+        
+        # Display recent actions
+        for i, action_info in enumerate(actions_data[:5]):  # Show first 5 actions
+            action = action_info.get('action', {})
+            admin_name = action_info.get('admin_name', 'Unknown Admin')
+            
+            print(f"   Action {i+1}:")
+            print(f"   - Admin: {admin_name}")
+            print(f"   - Type: {action.get('action_type')}")
+            print(f"   - Target: {action.get('target_type')} ({action.get('target_id')})")
+            print(f"   - Reason: {action.get('reason', 'No reason provided')}")
+            print(f"   - Date: {action.get('created_at')}")
+        
+        # Verify action structure
+        if actions_data:
+            first_action = actions_data[0].get('action', {})
+            expected_fields = ['id', 'admin_id', 'action_type', 'target_id', 'target_type', 'created_at']
+            
+            for field in expected_fields:
+                if field not in first_action:
+                    print(f"   ❌ Missing field in action log: {field}")
+                    return False
+            
+            print("   ✅ Admin action logging structure correct")
+        
+        return success
+
+    def test_admin_security_validation(self):
+        """Test admin security and data validation"""
+        print("\n" + "="*50)
+        print("TESTING ADMIN SECURITY VALIDATION")
+        print("="*50)
+        
+        if not self.admin_token:
+            print("❌ No admin token available for security testing")
+            return False
+        
+        # Test that admin user data excludes passwords in responses
+        success, users = self.run_test(
+            "Verify Password Exclusion in User Data",
+            "GET",
+            "admin/users",
+            200,
+            token=self.admin_token
+        )
+        
+        if success:
+            # Check that no user data contains password field
+            password_found = False
+            for user in users:
+                if 'password' in user:
+                    password_found = True
+                    break
+            
+            if not password_found:
+                print("   ✅ User passwords correctly excluded from admin responses")
+            else:
+                print("   ❌ Password data found in admin user responses")
+                return False
+        
+        # Test role validation in admin endpoints
+        success, response = self.run_test(
+            "Admin Profile Role Validation",
+            "GET",
+            "auth/profile",
+            200,
+            token=self.admin_token
+        )
+        
+        if success:
+            if response.get('role') == 'admin':
+                print("   ✅ Admin role validation working correctly")
+            else:
+                print("   ❌ Admin role validation failed")
+                return False
+        
+        return success
+
+    def test_admin_comprehensive_workflow(self):
+        """Test comprehensive admin workflow"""
+        print("\n" + "="*50)
+        print("TESTING COMPREHENSIVE ADMIN WORKFLOW")
+        print("="*50)
+        
+        if not self.admin_token:
+            print("❌ No admin token available for workflow testing")
+            return False
+        
+        print("   🔄 Testing complete admin workflow...")
+        
+        # Step 1: Check platform stats
+        success, stats = self.run_test(
+            "Get Platform Stats",
+            "GET",
+            "admin/stats",
+            200,
+            token=self.admin_token
+        )
+        
+        if success:
+            total_users = stats.get('users', {}).get('total', 0)
+            print(f"   📊 Platform has {total_users} total users")
+        
+        # Step 2: Get all users for management
+        success, users = self.run_test(
+            "Get All Users for Management",
+            "GET",
+            "admin/users",
+            200,
+            token=self.admin_token
+        )
+        
+        if success:
+            print(f"   👥 Retrieved {len(users)} users for management")
+        
+        # Step 3: Get content for moderation
+        success, books = self.run_test(
+            "Get Content for Moderation",
+            "GET",
+            "admin/content/books",
+            200,
+            token=self.admin_token
+        )
+        
+        if success:
+            print(f"   📚 Retrieved {len(books)} books for moderation")
+        
+        # Step 4: Check audit trail
+        success, actions = self.run_test(
+            "Check Audit Trail",
+            "GET",
+            "admin/actions",
+            200,
+            token=self.admin_token
+        )
+        
+        if success:
+            print(f"   📋 Found {len(actions)} actions in audit trail")
+        
+        print("   ✅ Complete admin workflow tested successfully")
+        return success
+
 def main():
     print("🚀 Starting UniNest API Testing")
     print("="*60)
