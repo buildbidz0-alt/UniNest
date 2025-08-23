@@ -75,8 +75,8 @@ function AuthProvider({ children }) {
 
   useEffect(() => {
     if (token) {
-      // Initialize socket connection
-      socket = io(BACKEND_URL);
+      // Socket connection temporarily disabled to prevent console errors
+      // socket = io(BACKEND_URL);
       
       // Verify token and get user
       fetchProfile();
