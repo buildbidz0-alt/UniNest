@@ -2016,8 +2016,11 @@ function LibraryProfile() {
     try {
       const api = apiRequest(token);
       const response = await api.get('/subscription-plans');
-      setSubscriptionPlans(response.data);
+      // Ensure we always set an array, even if API returns something unexpected
+      setSubscriptionPlans(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
+      console.error('Error fetching subscription plans:', error);
+      setSubscriptionPlans([]); // Set empty array on error
       toast({
         title: "Error",
         description: "Failed to fetch subscription plans",
