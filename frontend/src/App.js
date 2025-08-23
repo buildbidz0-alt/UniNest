@@ -2786,7 +2786,7 @@ function Subscription() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {subscriptionPlans.map((plan) => (
+            {Array.isArray(subscriptionPlans) && subscriptionPlans.map((plan) => (
               <Card key={plan.id} className={`relative ${plan.id === 'premium' ? 'border-blue-500 border-2' : ''}`}>
                 {plan.id === 'premium' && (
                   <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
