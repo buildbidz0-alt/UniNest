@@ -1349,6 +1349,11 @@ app.include_router(api_router)
 # Add Socket.IO support
 app.mount("/socket.io", socketio.ASGIApp(sio))
 
+# Startup event to initialize admin user
+@app.on_event("startup")
+async def startup_event():
+    await initialize_admin()
+
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
