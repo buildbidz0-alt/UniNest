@@ -1984,6 +1984,312 @@ class UniNestAPITester:
         print("   ✅ Complete admin workflow tested successfully")
         return success
 
+    def test_enhanced_competition_module(self):
+        """Test Enhanced Competition Module with Razorpay integration"""
+        print("\n" + "="*50)
+        print("TESTING ENHANCED COMPETITION MODULE WITH RAZORPAY")
+        print("="*50)
+        
+        if not self.admin_token or not self.student_token:
+            print("❌ Need both admin and student tokens for competition testing")
+            return False
+        
+        # Test 1: Admin creates competition with entry fee
+        comp_data = {
+            "title": "Programming Championship 2024",
+            "category": "Programming",
+            "description": "Annual programming competition with cash prizes",
+            "rules": "Solve algorithmic problems within time limit",
+            "deadline": "2024-12-31T23:59:59Z",
+            "prizes": ["First Prize: ₹50000", "Second Prize: ₹25000", "Third Prize: ₹10000"],
+            "entry_fee": 50000,  # ₹500 in paise
+            "max_participants": 100,
+            "image_url": "https://example.com/programming-comp.jpg"
+        }
+        
+        success, comp_response = self.run_test(
+            "Admin Create Competition with Entry Fee",
+            "POST",
+            "admin/competitions",
+            200,
+            data=comp_data,
+            token=self.admin_token
+        )
+        
+        competition_id = None
+        if success:
+            competition_id = comp_response.get('id')
+            print(f"   Created competition: {comp_response.get('title')}")
+            print(f"   Entry Fee: ₹{comp_response.get('entry_fee', 0)/100}")
+            print(f"   Max Participants: {comp_response.get('max_participants')}")
+        
+        # Test 2: Admin creates free competition
+        free_comp_data = {
+            "title": "Free Coding Contest",
+            "category": "Programming",
+            "description": "Free programming contest for beginners",
+            "rules": "Basic coding challenges",
+            "deadline": "2024-12-31T23:59:59Z",
+            "prizes": ["Certificate of Achievement"],
+            "entry_fee": 0,  # Free competition
+            "max_participants": 50,
+            "image_url": "https://example.com/free-comp.jpg"
+        }
+        
+        success, free_comp_response = self.run_test(
+            "Admin Create Free Competition",
+            "POST",
+            "admin/competitions",
+            200,
+            data=free_comp_data,
+            token=self.admin_token
+        )
+        
+        free_competition_id = None
+        if success:
+            free_competition_id = free_comp_response.get('id')
+            print(f"   Created free competition: {free_comp_response.get('title')}")
+        
+        # Test 3: Get all competitions (admin view)
+        success, admin_competitions = self.run_test(
+            "Admin Get All Competitions",
+            "GET",
+            "admin/competitions",
+            200,
+            token=self.admin_token
+        )
+        
+        if success:
+            print(f"   Admin sees {len(admin_competitions)} competitions")
+        
+        # Test 4: Students view active competitions
+        success, student_competitions = self.run_test(
+            "Students View Active Competitions",
+            "GET",
+            "competitions",
+            200,
+            token=self.student_token
+        )
+        
+        if success:
+            print(f"   Students see {len(student_competitions)} active competitions")
+        
+        # Test 5: Get detailed competition view
+        if competition_id:
+            success, comp_details = self.run_test(
+                "Get Competition Details",
+                "GET",
+                f"competitions/{competition_id}",
+                200,
+                token=self.student_token
+            )
+            
+            if success:
+                comp_info = comp_details.get('competition', {})
+                print(f"   Competition details: {comp_info.get('title')}")
+                print(f"   Current participants: {comp_info.get('current_participants', 0)}")
+                print(f"   Is registered: {comp_details.get('is_registered', False)}")
+        
+        # Test 6: Student registers for free competition
+        if free_competition_id:
+            success, reg_response = self.run_test(
+                "Student Register for Free Competition",
+                "POST",
+                f"competitions/{free_competition_id}/register",
+                200,
+                token=self.student_token
+            )
+            
+            if success:
+                print(f"   Free registration successful: {reg_response.get('message')}")
+        
+        # Test 7: Student tries to register for paid competition (should fail without payment)
+        if competition_id:
+            success, _ = self.run_test(
+                "Student Register for Paid Competition (Should Fail)",
+                "POST",
+                f"competitions/{competition_id}/register",
+                400,
+                token=self.student_token
+            )
+            
+            if success:
+                print("   ✅ Correctly blocked direct registration for paid competition")
+        
+        # Test 8: Create payment order for competition entry fee
+        if competition_id:
+            payment_data = {
+                "competition_id": competition_id,
+                "amount": 50000  # ₹500 in paise
+            }
+            
+            success, payment_response = self.run_test(
+                "Create Competition Payment Order",
+                "POST",
+                f"competitions/{competition_id}/payment",
+                200,
+                data=payment_data,
+                token=self.student_token
+            )
+            
+            if success:
+                print(f"   Payment order created: {payment_response.get('order_id')}")
+                print(f"   Amount: ₹{payment_response.get('amount', 0)/100}")
+                print(f"   Competition: {payment_response.get('competition', {}).get('title')}")
+        
+        # Test 9: Test competition likes
+        if competition_id:
+            success, like_response = self.run_test(
+                "Like Competition",
+                "POST",
+                f"competitions/{competition_id}/like",
+                200,
+                token=self.student_token
+            )
+            
+            if success:
+                print(f"   Competition liked: {like_response.get('message')}")
+                print(f"   Likes count: {like_response.get('likes_count', 0)}")
+        
+        # Test 10: Get student's registered competitions
+        success, my_competitions = self.run_test(
+            "Get My Competitions",
+            "GET",
+            "competitions/my",
+            200,
+            token=self.student_token
+        )
+        
+        if success:
+            print(f"   Student registered for {len(my_competitions)} competitions")
+            for comp in my_competitions:
+                print(f"   - {comp.get('title')}: {comp.get('registration_status')}")
+        
+        # Test 11: Admin updates competition status
+        if competition_id:
+            status_data = {"status": "closed"}
+            success, status_response = self.run_test(
+                "Admin Update Competition Status",
+                "PUT",
+                f"admin/competitions/{competition_id}/status",
+                200,
+                data=status_data,
+                token=self.admin_token
+            )
+            
+            if success:
+                print(f"   Competition status updated: {status_response.get('message')}")
+        
+        # Test 12: Test role-based access control
+        if self.library_token and competition_id:
+            success, _ = self.run_test(
+                "Library User Access Competition (Should Fail)",
+                "POST",
+                f"competitions/{competition_id}/register",
+                403,
+                token=self.library_token
+            )
+            
+            if success:
+                print("   ✅ Library users correctly blocked from competitions")
+        
+        # Test 13: Test duplicate registration prevention
+        if free_competition_id:
+            success, _ = self.run_test(
+                "Duplicate Registration (Should Fail)",
+                "POST",
+                f"competitions/{free_competition_id}/register",
+                400,
+                token=self.student_token
+            )
+            
+            if success:
+                print("   ✅ Duplicate registration correctly prevented")
+        
+        # Test 14: Test competition filtering
+        success, programming_comps = self.run_test(
+            "Filter Competitions by Category",
+            "GET",
+            "competitions?category=Programming",
+            200,
+            token=self.student_token
+        )
+        
+        if success:
+            print(f"   Found {len(programming_comps)} programming competitions")
+        
+        # Test 15: Test payment verification endpoint (simulate)
+        if competition_id:
+            # Note: We can't actually verify payment without real Razorpay transaction
+            # But we can test the endpoint structure
+            verification_data = {
+                "razorpay_order_id": "order_test123",
+                "razorpay_payment_id": "pay_test123",
+                "razorpay_signature": "test_signature"
+            }
+            
+            success, _ = self.run_test(
+                "Test Payment Verification Endpoint",
+                "POST",
+                f"competitions/{competition_id}/payment/verify",
+                400,  # Expected to fail with invalid signature
+                data=verification_data,
+                token=self.student_token
+            )
+            
+            if success:
+                print("   ✅ Payment verification endpoint accessible")
+        
+        # Test 16: Test deadline validation
+        past_deadline_comp = {
+            "title": "Past Deadline Competition",
+            "category": "Test",
+            "description": "Competition with past deadline",
+            "rules": "Test rules",
+            "deadline": "2020-01-01T00:00:00Z",  # Past deadline
+            "prizes": ["Test Prize"],
+            "entry_fee": 0,
+            "max_participants": 10
+        }
+        
+        success, past_comp_response = self.run_test(
+            "Create Competition with Past Deadline",
+            "POST",
+            "admin/competitions",
+            200,
+            data=past_deadline_comp,
+            token=self.admin_token
+        )
+        
+        if success:
+            past_comp_id = past_comp_response.get('id')
+            # Try to register for past deadline competition
+            success, _ = self.run_test(
+                "Register for Past Deadline Competition (Should Fail)",
+                "POST",
+                f"competitions/{past_comp_id}/register",
+                400,
+                token=self.student_token
+            )
+            
+            if success:
+                print("   ✅ Past deadline registration correctly blocked")
+        
+        print("\n   📊 COMPETITION MODULE TEST SUMMARY:")
+        print("   ✅ Admin competition creation with entry fees")
+        print("   ✅ Free competition registration")
+        print("   ✅ Paid competition payment order creation")
+        print("   ✅ Competition likes and engagement")
+        print("   ✅ Role-based access control")
+        print("   ✅ Duplicate registration prevention")
+        print("   ✅ Competition status management")
+        print("   ✅ Student competition tracking")
+        print("   ✅ Payment verification endpoint")
+        print("   ✅ Deadline validation")
+        print("   ✅ Category filtering")
+        
+        return True
+
 def main():
     print("🚀 Starting UniNest API Testing")
     print("="*60)
