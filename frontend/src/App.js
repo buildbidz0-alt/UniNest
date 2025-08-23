@@ -2548,7 +2548,7 @@ function LibraryProfile() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <ul className="space-y-2">
-                        {plan.features?.map((feature, index) => (
+                        {Array.isArray(plan.features) && plan.features.map((feature, index) => (
                           <li key={index} className="flex items-center text-sm">
                             <Check className="h-4 w-4 text-green-600 mr-2 flex-shrink-0" />
                             {feature}
