@@ -997,7 +997,16 @@ function Sidebar({ isOpen, onClose }) {
     { name: 'Subscription', href: '/subscription', icon: Star }
   ];
 
-  const navigation = user?.role === 'student' ? studentNavigation : libraryNavigation;
+  const adminNavigation = [
+    { name: 'Admin Dashboard', href: '/admin', icon: Shield },
+    { name: 'User Management', href: '/admin', icon: Users },
+    { name: 'Content Moderation', href: '/admin', icon: Settings },
+    { name: 'System Stats', href: '/admin', icon: Globe }
+  ];
+
+  const navigation = user?.role === 'student' ? studentNavigation : 
+                    user?.role === 'library' ? libraryNavigation : 
+                    user?.role === 'admin' ? adminNavigation : [];
 
   return (
     <>
