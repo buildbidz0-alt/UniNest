@@ -1005,7 +1005,12 @@ async def register_for_competition(competition_id: str, current_user: dict = Dep
     if competition["status"] != "active":
         raise HTTPException(status_code=400, detail="Competition is not active")
     
-    if competition["deadline"] < datetime.now(timezone.utc):
+    # Convert deadline to timezone-aware datetime if it's naive
+    deadline = competition["deadline"]
+    if isinstance(deadline, datetime) and deadline.tzinfo is None:
+        deadline = deadline.replace(tzinfo=timezone.utc)
+    
+    if deadline < datetime.now(timezone.utc):
         raise HTTPException(status_code=400, detail="Registration deadline has passed")
     
     # Check if already registered
