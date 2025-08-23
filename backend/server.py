@@ -1017,24 +1017,254 @@ async def register_for_competition(competition_id: str, current_user: dict = Dep
     if existing:
         raise HTTPException(status_code=400, detail="Already registered for this competition")
     
-    registration = CompetitionRegistration(
-        competition_id=competition_id,
-        student_id=current_user["id"]
+    # Check max participants limit
+    if competition["max_participants"]:
+        current_count = await db.competition_registrations.count_documents({
+            "competition_id": competition_id,
+            "payment_status": "completed" if competition["entry_fee"] > 0 else {"$in": ["completed", "pending"]}
+        })
+        if current_count >= competition["max_participants"]:
+            raise HTTPException(status_code=400, detail="Competition is full")
+    
+    # For free competitions, register directly
+    if competition["entry_fee"] == 0:
+        registration = CompetitionRegistration(
+            competition_id=competition_id,
+            student_id=current_user["id"],
+            payment_status="completed"  # No payment needed for free competitions
+        )
+        await db.competition_registrations.insert_one(registration.dict())
+        return {"message": "Registration successful", "payment_required": False}
+    else:
+        raise HTTPException(status_code=400, detail="This competition requires payment. Use /competitions/{competition_id}/payment endpoint")
+
+@api_router.post("/competitions/{competition_id}/payment")
+async def create_competition_payment(
+    competition_id: str, 
+    payment_data: CompetitionPayment,
+    current_user: dict = Depends(get_current_user)
+):
+    """Create payment order for competition entry fee"""
+    if current_user["role"] != "student":
+        raise HTTPException(status_code=403, detail="Only students can register for competitions")
+    
+    # Check if competition exists
+    competition = await db.competitions.find_one({"id": competition_id})
+    if not competition:
+        raise HTTPException(status_code=404, detail="Competition not found")
+    
+    if competition["entry_fee"] == 0:
+        raise HTTPException(status_code=400, detail="This competition is free")
+    
+    if payment_data.amount != competition["entry_fee"]:
+        raise HTTPException(status_code=400, detail="Payment amount doesn't match entry fee")
+    
+    # Check if already registered
+    existing = await db.competition_registrations.find_one({
+        "competition_id": competition_id,
+        "student_id": current_user["id"]
+    })
+    
+    if existing:
+        raise HTTPException(status_code=400, detail="Already registered for this competition")
+    
+    # Create Razorpay order
+    try:
+        razor_order = razorpay_client.order.create({
+            "amount": competition["entry_fee"],
+            "currency": "INR",
+            "payment_capture": 1,
+            "notes": {
+                "competition_id": competition_id,
+                "student_id": current_user["id"],
+                "competition_title": competition["title"]
+            }
+        })
+        
+        # Create pending registration
+        registration = CompetitionRegistration(
+            competition_id=competition_id,
+            student_id=current_user["id"],
+            payment_status="pending"
+        )
+        await db.competition_registrations.insert_one(registration.dict())
+        
+        return {
+            "order_id": razor_order["id"],
+            "amount": razor_order["amount"],
+            "currency": razor_order["currency"],
+            "key": os.environ.get('RAZORPAY_KEY_ID'),
+            "competition": {
+                "id": competition["id"],
+                "title": competition["title"],
+                "entry_fee": competition["entry_fee"]
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create payment order: {str(e)}")
+
+@api_router.post("/competitions/{competition_id}/payment/verify")
+async def verify_competition_payment(
+    competition_id: str,
+    payment_data: PaymentVerification,
+    current_user: dict = Depends(get_current_user)
+):
+    """Verify competition payment and complete registration"""
+    try:
+        # Verify Razorpay signature
+        razorpay_client.utility.verify_payment_signature({
+            'razorpay_order_id': payment_data.razorpay_order_id,
+            'razorpay_payment_id': payment_data.razorpay_payment_id,
+            'razorpay_signature': payment_data.razorpay_signature
+        })
+        
+        # Update registration with payment details
+        result = await db.competition_registrations.update_one(
+            {
+                "competition_id": competition_id,
+                "student_id": current_user["id"],
+                "payment_status": "pending"
+            },
+            {
+                "$set": {
+                    "payment_id": payment_data.razorpay_payment_id,
+                    "payment_status": "completed"
+                }
+            }
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Registration not found")
+        
+        return {"message": "Payment verified and registration completed successfully"}
+        
+    except razorpay.errors.SignatureVerificationError:
+        # Mark payment as failed
+        await db.competition_registrations.update_one(
+            {
+                "competition_id": competition_id,
+                "student_id": current_user["id"],
+                "payment_status": "pending"
+            },
+            {"$set": {"payment_status": "failed"}}
+        )
+        raise HTTPException(status_code=400, detail="Invalid payment signature")
+
+@api_router.post("/competitions/{competition_id}/like")
+async def like_competition(competition_id: str, current_user: dict = Depends(get_current_user)):
+    """Like a competition"""
+    if current_user["role"] != "student":
+        raise HTTPException(status_code=403, detail="Only students can like competitions")
+    
+    # Check if already liked
+    existing_like = await db.competition_likes.find_one({
+        "competition_id": competition_id,
+        "student_id": current_user["id"]
+    })
+    
+    if existing_like:
+        # Unlike
+        await db.competition_likes.delete_one({
+            "competition_id": competition_id,
+            "student_id": current_user["id"]
+        })
+        action = "unliked"
+    else:
+        # Like
+        like = CompetitionLike(
+            competition_id=competition_id,
+            student_id=current_user["id"]
+        )
+        await db.competition_likes.insert_one(like.dict())
+        action = "liked"
+    
+    # Update likes count
+    likes_count = await db.competition_likes.count_documents({"competition_id": competition_id})
+    await db.competitions.update_one(
+        {"id": competition_id},
+        {"$set": {"likes_count": likes_count}}
     )
     
-    await db.competition_registrations.insert_one(registration.dict())
-    return {"message": "Registration successful"}
+    return {"message": f"Competition {action} successfully", "likes_count": likes_count}
 
 @api_router.get("/competitions/my")
 async def get_my_competitions(current_user: dict = Depends(get_current_user)):
+    """Get competitions the user is registered for"""
     if current_user["role"] != "student":
         raise HTTPException(status_code=403, detail="Only students can view their competitions")
     
-    registrations = await db.competition_registrations.find({"student_id": current_user["id"]}).to_list(100)
+    # Get registrations with completed payments (or pending for free competitions)
+    registrations = await db.competition_registrations.find({
+        "student_id": current_user["id"],
+        "payment_status": {"$in": ["completed", "pending"]}
+    }).to_list(100)
+    
     competition_ids = [reg["competition_id"] for reg in registrations]
     
+    if not competition_ids:
+        return []
+    
     competitions = await db.competitions.find({"id": {"$in": competition_ids}}).to_list(100)
-    return [Competition(**comp) for comp in competitions]
+    
+    # Enrich with registration details
+    result = []
+    for comp in competitions:
+        reg = next((r for r in registrations if r["competition_id"] == comp["id"]), None)
+        comp_data = Competition(**comp).dict()
+        comp_data["registration_status"] = reg["payment_status"] if reg else "not_registered"
+        comp_data["registration_date"] = reg["registration_date"] if reg else None
+        result.append(comp_data)
+    
+    return result
+
+@api_router.get("/admin/competitions")
+async def get_admin_competitions(admin_user: dict = Depends(get_admin_user)):
+    """Get all competitions for admin management"""
+    competitions = await db.competitions.find({}).sort("created_at", -1).to_list(100)
+    
+    # Enrich with participant counts
+    enriched_competitions = []
+    for comp in competitions:
+        participant_count = await db.competition_registrations.count_documents({
+            "competition_id": comp["id"],
+            "payment_status": "completed"
+        })
+        comp_data = Competition(**comp).dict()
+        comp_data["current_participants"] = participant_count
+        enriched_competitions.append(comp_data)
+    
+    return enriched_competitions
+
+@api_router.put("/admin/competitions/{competition_id}/status")
+async def update_competition_status(
+    competition_id: str,
+    status_data: dict,
+    admin_user: dict = Depends(get_admin_user)
+):
+    """Update competition status (admin only)"""
+    new_status = status_data.get("status")
+    if new_status not in ["active", "closed", "completed"]:
+        raise HTTPException(status_code=400, detail="Invalid status")
+    
+    result = await db.competitions.update_one(
+        {"id": competition_id},
+        {"$set": {"status": new_status}}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Competition not found")
+    
+    # Log admin action
+    admin_action = AdminAction(
+        admin_id=admin_user["id"],
+        action_type="competition_status_update",
+        target_id=competition_id,
+        target_type="competition",
+        reason=f"Status changed to {new_status}"
+    )
+    await db.admin_actions.insert_one(admin_action.dict())
+    
+    return {"message": f"Competition status updated to {new_status}"}
 
 # --- NOTES SHARING ENDPOINTS ---
 
