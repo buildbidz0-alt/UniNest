@@ -1169,10 +1169,10 @@ async def get_all_users(admin_user: dict = Depends(get_admin_user)):
     """Get all users for admin management"""
     users = await db.users.find({}).to_list(1000)
     
-    # Remove password from response
+    # Remove password and convert ObjectId to string
     safe_users = []
     for user in users:
-        safe_user = {k: v for k, v in user.items() if k != "password"}
+        safe_user = {k: v for k, v in user.items() if k not in ["password", "_id"]}
         safe_users.append(safe_user)
     
     return safe_users
