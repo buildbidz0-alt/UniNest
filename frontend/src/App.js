@@ -2597,13 +2597,27 @@ function Subscription() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      await Promise.all([
+      // Use Promise.allSettled to prevent one failure from stopping all data fetching
+      const results = await Promise.allSettled([
         fetchLibraryProfile(),
         fetchSubscription(),
         fetchSubscriptionPlans()
       ]);
+      
+      // Log any failed requests for debugging
+      results.forEach((result, index) => {
+        if (result.status === 'rejected') {
+          const functionNames = ['fetchLibraryProfile', 'fetchSubscription', 'fetchSubscriptionPlans'];
+          console.error(`${functionNames[index]} failed:`, result.reason);
+        }
+      });
     } catch (error) {
       console.error('Error fetching subscription data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load subscription data. Please refresh the page.",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
