@@ -1444,7 +1444,7 @@ def main():
     
     tester = UniNestAPITester()
     
-    # Test sequence - focusing on Razorpay integration and free trial system
+    # Test sequence - focusing on Chat System and existing functionality
     tests = [
         ("Health Check", tester.test_health_check),
         ("Phone Number Validation", tester.test_phone_number_validation),
@@ -1452,6 +1452,7 @@ def main():
         ("Library Registration", tester.test_library_registration),
         ("Authentication", tester.test_authentication),
         ("Profile Access", tester.test_profile_access),
+        ("Chat System", tester.test_chat_system),  # NEW: Comprehensive chat system testing
         ("Library Profile Management", tester.test_library_profile_management),
         ("Free Trial System", tester.test_free_trial_system),
         ("Razorpay Integration", tester.test_razorpay_integration),
@@ -1463,7 +1464,7 @@ def main():
         ("Competitions", tester.test_competitions),
         ("Notes Sharing", tester.test_notes_sharing),
         ("Social Feed", tester.test_social_feed),
-        ("Messaging", tester.test_messaging)
+        ("Messaging", tester.test_messaging)  # Keep existing basic messaging test
     ]
     
     failed_tests = []
